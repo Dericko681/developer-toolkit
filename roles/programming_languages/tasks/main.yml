@@ -1,0 +1,19 @@
+# roles/programming_languages/tasks/main.yml
+---
+- name: Include Rust installation tasks
+  ansible.builtin.include_tasks: rust.yml
+  when: install_rust | bool
+
+- name: Include Java installation tasks
+  ansible.builtin.include_tasks: java.yml
+  when: install_java | bool
+
+- name: Include Go installation tasks
+  ansible.builtin.include_tasks: go.yml
+  when: install_go | bool
+
+- name: Include Node.js installation tasks
+  ansible.builtin.include_tasks: nodejs.yml
+  when: install_nodejs | bool
+
+# (You would create rust.yml, java.yml, go.yml, nodejs.yml in this same directory)

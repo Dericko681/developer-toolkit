@@ -1,0 +1,163 @@
+---
+- name: Update apt cache and upgrade all installed packages
+  ansible.builtin.apt:
+    update_cache: yes
+    upgrade: dist
+    cache_valid_time: 3600 # Cache for 1 hour
+  tags:
+    - system-update
+
+- name: Install common dependencies for adding repositories and keys
+  ansible.builtin.apt:
+    name:
+      - apt-transport-https
+      - ca-certificates
+      - curl
+      - gnupg
+      - lsb-release
+      - wget
+    state: present
+  tags:
+    - dependencies
+
+- name: Install essential developer tools via apt
+  ansible.builtin.apt:
+    name:
+      - git
+      - htop
+      - python3
+      - python3-pip
+      - diodon
+      - tmux
+    state: present
+  tags:
+    - apt-tools
+
+- name: Install Zsh
+  ansible.builtin.apt:
+    name: zsh
+    state: present
+  tags:
+    - zsh
+
+- name: Change default shell to zsh for {{ ansible_user }}
+  ansible.builtin.user:
+    name: "{{ ansible_user }}"
+    shell: /usr/bin/zsh
+  # This task relies on ansible_user being the user you want to change shell for.
+  # If running as root or a different user, adjust 'name' accordingly or ensure
+  # 'ansible_user' is set correctly when running the playbook.
+  tags:
+    - zsh
+    - shell
+
+- name: Install Oh My Zsh
+  ansible.builtin.shell: |
+    sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
+  args:
+    creates: "/home/{{ ansible_user }}/.oh-my-zsh"
+  register: ohmyzsh_install
+  changed_when: ohmyzsh_install.rc != 0
+  become: no # Run as the current user, not root
+  tags:
+    - oh-my-zsh
+
+- name: Copy .zshrc template to {{ ansible_user }}'s home directory
+  ansible.builtin.template:
+    src: .zshrc.j2
+    dest: "/home/{{ ansible_user }}/.zshrc"
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: '0644'
+  become: no # Ensure this is written by the user, not root
+  tags:
+    - zsh
+    - dotfiles
+
+- name: Add Microsoft GPG key for VS Code
+  ansible.builtin.apt_key:
+    url: https://packages.microsoft.com/keys/microsoft.asc
+    state: present
+  tags:
+    - vscode
+
+- name: Add VS Code repository
+  ansible.builtin.apt_repository:
+    repo: deb [arch=amd64,arm64,armhf] https://packages.microsoft.com/repos/code stable main
+    state: present
+    filename: vscode
+  tags:
+    - vscode
+
+- name: Install Visual Studio Code
+  ansible.builtin.apt:
+    name: code
+    state: present
+    update_cache: yes # Ensure cache is updated after adding repo
+  tags:
+    - vscode
+
+- name: Add Docker GPG key
+  ansible.builtin.apt_key:
+    url: https://download.docker.com/linux/ubuntu/gpg
+    state: present
+  tags:
+    - docker
+
+- name: Add Docker APT repository for Ubuntu/Debian
+  ansible.builtin.apt_repository:
+    repo: "deb [arch={{ 'amd64' if 'x86_64' in ansible_architecture else ('arm64' if 'aarch64' in ansible_architecture else 'armhf') }}] https://download.docker.com/linux/{{ ansible_distribution | lower }} {{ ansible_distribution_release }} stable"
+    state: present
+    filename: docker
+  tags:
+    - docker
+
+- name: Install Docker Engine and Compose Plugin
+  ansible.builtin.apt:
+    name:
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+      - docker-buildx-plugin
+      - docker-compose-plugin
+    state: present
+    update_cache: yes # Ensure cache is updated after adding repo
+  notify: Restart docker service
+  tags:
+    - docker
+
+- name: Add {{ ansible_user }} to docker group
+  ansible.builtin.user:
+    name: "{{ ansible_user }}"
+    groups: docker
+    append: yes
+  tags:
+    - docker
+    - user-groups
+  # Note: User will need to log out and back in for group changes to take effect in their session.
+
+- name: Ensure snapd is installed
+  ansible.builtin.apt:
+    name: snapd
+    state: present
+  tags:
+    - snap
+    - multipass
+    - discord
+
+- name: Install Multipass via Snap
+  community.general.snap:
+    name: multipass
+    classic: yes # Multipass often requires classic confinement
+    state: present
+  tags:
+    - snap
+    - multipass
+
+- name: Install Discord via Snap
+  community.general.snap:
+    name: discord
+    state: present
+  tags:
+    - snap
+    - discord

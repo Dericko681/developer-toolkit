@@ -1,0 +1,6 @@
+# roles/devops_cloud_native/tasks/main.yml
+---
+- name: Include Terraform tasks
+  ansible.builtin.include_tasks: terraform.yml
+  when: install_terraform | bool
+# ... and so on for k8s_cli, k9s, k3s_cli, ansible_cli, ollama, minio_client, argocd_cli, jenkins_cli, helm

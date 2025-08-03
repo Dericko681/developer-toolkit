@@ -1,0 +1,33 @@
+# roles/ai-ml-datascience/tasks/main.yml
+---
+- name: AI/ML/Data Science Tools Installation
+  ansible.builtin.debug:
+    msg: "Starting installation tasks for AI/ML/Data Science tools based on user choices."
+
+- name: Include JupyterLab installation tasks
+  ansible.builtin.include_tasks: jupyterlab.yml
+  when: install_jupyterlab is defined and install_jupyterlab | bool
+  tags:
+    - ai-ml
+    - jupyterlab
+
+- name: Include PyTorch installation tasks
+  ansible.builtin.include_tasks: pytorch.yml
+  when: install_pytorch is defined and install_pytorch | bool
+  tags:
+    - ai-ml
+    - pytorch
+
+- name: Include TensorFlow installation tasks
+  ansible.builtin.include_tasks: tensorflow.yml
+  when: install_tensorflow is defined and install_tensorflow | bool
+  tags:
+    - ai-ml
+    - tensorflow
+
+- name: Include Hugging Face CLI installation tasks
+  ansible.builtin.include_tasks: huggingface_cli.yml
+  when: install_huggingface_cli is defined and install_huggingface_cli | bool
+  tags:
+    - ai-ml
+    - huggingface-cli

@@ -1,0 +1,11 @@
+# roles/base_system/handlers/main.yml
+---
+- name: Restart docker service
+  ansible.builtin.service:
+    name: docker
+    state: restarted
+    enabled: yes # Ensure it starts on boot
+  listen: "Restart docker service" # Must match the 'notify' name in tasks
+  tags:
+    - docker
+    - service

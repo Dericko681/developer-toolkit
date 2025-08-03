@@ -1,0 +1,22 @@
+# roles/ai-ml-datascience/tasks/tensorflow.yml
+---
+- name: Ensure Python 3 pip is installed
+  ansible.builtin.apt:
+    name: python3-pip
+    state: present
+  tags:
+    - tensorflow
+
+- name: Install TensorFlow using pip
+  ansible.builtin.pip:
+    name: tensorflow
+    state: present
+    executable: pip3
+  tags:
+    - tensorflow
+
+- name: Display TensorFlow installation confirmation
+  ansible.builtin.debug:
+    msg: "TensorFlow has been installed successfully."
+  tags:
+    - tensorflow

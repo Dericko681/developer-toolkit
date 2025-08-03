@@ -1,0 +1,205 @@
+# roles/prompt_user/tasks/main.yml
+---
+- name: Display Welcome Message and Instructions
+  ansible.builtin.pause:
+    prompt: |
+      *************************************************************************
+      Welcome to the Advanced Dev Tools Provisioner!
+      You will now be prompted to choose which development tools to install.
+      Tools are categorized by common software engineering fields.
+      Please enter 'y' for Yes or 'n' for No for each tool.
+      Your choices will determine which specific tools get installed.
+      *************************************************************************
+      Press Enter to begin the prompts...
+    echo: no # Do not echo user input for this welcome message
+
+- name: Initialize installation preferences (defaulting all to 'false' if not prompted)
+  ansible.builtin.set_fact:
+    install_rust: "{{ 'false' }}"
+    install_java: "{{ 'false' }}"
+    install_go: "{{ 'false' }}"
+    install_nodejs: "{{ 'false' }}"
+    install_terraform: "{{ 'false' }}"
+    install_k8s_cli: "{{ 'false' }}" # kubectl
+    install_k9s: "{{ 'false' }}"
+    install_k3s_cli: "{{ 'false' }}" # k3s client tools
+    install_ansible_cli: "{{ 'false' }}"
+    install_ollama: "{{ 'false' }}"
+    install_minio_client: "{{ 'false' }}"
+    install_argocd_cli: "{{ 'false' }}"
+    install_jenkins_cli: "{{ 'false' }}"
+    install_helm: "{{ 'false' }}"
+    install_huggingface_cli: "{{ 'false' }}"
+    install_db_clients: "{{ 'false' }}" # Covers various DBMS clients
+    install_aws_cli: "{{ 'false' }}"
+    install_gemini_cli: "{{ 'false' }}"
+  run_once: true # Ensure these facts are set only once per playbook run
+
+# --- Programming Languages & Runtimes ---
+- name: SECTION: Programming Languages & Runtimes
+  ansible.builtin.debug:
+    msg: "--- Configuring Programming Languages & Runtimes ---"
+
+- name: Prompt for Rust installation
+  ansible.builtin.pause:
+    prompt: "Install Rust (y/n)?"
+  register: rust_choice
+- name: Set fact for Rust installation
+  ansible.builtin.set_fact:
+    install_rust: "{{ 'true' if rust_choice.user_input | lower == 'y' else 'false' }}"
+
+- name: Prompt for Java installation (OpenJDK)
+  ansible.builtin.pause:
+    prompt: "Install Java (y/n)?"
+  register: java_choice
+- name: Set fact for Java installation
+  ansible.builtin.set_fact:
+    install_java: "{{ 'true' if java_choice.user_input | lower == 'y' else 'false' }}"
+
+- name: Prompt for Go installation
+  ansible.builtin.pause:
+    prompt: "Install Go (y/n)?"
+  register: go_choice
+- name: Set fact for Go installation
+  ansible.builtin.set_fact:
+    install_go: "{{ 'true' if go_choice.user_input | lower == 'y' else 'false' }}"
+
+- name: Prompt for Node.js (via NVM) installation
+  ansible.builtin.pause:
+    prompt: "Install Node.js (y/n)?"
+  register: nodejs_choice
+- name: Set fact for Node.js installation
+  ansible.builtin.set_fact:
+    install_nodejs: "{{ 'true' if nodejs_choice.user_input | lower == 'y' else 'false' }}"
+
+# --- DevOps & Cloud Native Tools ---
+- name: SECTION: DevOps & Cloud Native Tools
+  ansible.builtin.debug:
+    msg: "--- Configuring DevOps & Cloud Native Tools ---"
+
+- name: Prompt for Terraform installation
+  ansible.builtin.pause:
+    prompt: "Install Terraform (y/n)?"
+  register: terraform_choice
+- name: Set fact for Terraform installation
+  ansible.builtin.set_fact:
+    install_terraform: "{{ 'true' if terraform_choice.user_input | lower == 'y' else 'false' }}"
+
+- name: Prompt for Kubernetes CLI (kubectl) installation
+  ansible.builtin.pause:
+    prompt: "Install Kubernetes CLI (kubectl) (y/n)?"
+  register: k8s_cli_choice
+- name: Set fact for Kubernetes CLI installation
+  ansible.builtin.set_fact:
+    install_k8s_cli: "{{ 'true' if k8s_cli_choice.user_input | lower == 'y' else 'false' }}"
+
+- name: Prompt for K9s (Kubernetes CLI TUI) installation
+  ansible.builtin.pause:
+    prompt: "Install K9s (y/n)?"
+  register: k9s_choice
+- name: Set fact for K9s installation
+  ansible.builtin.set_fact:
+    install_k9s: "{{ 'true' if k9s_choice.user_input | lower == 'y' else 'false' }}"
+
+- name: Prompt for K3s client tools installation
+  ansible.builtin.pause:
+    prompt: "Install K3s client tools (y/n)?"
+  register: k3s_cli_choice
+- name: Set fact for K3s client tools installation
+  ansible.builtin.set_fact:
+    install_k3s_cli: "{{ 'true' if k3s_cli_choice.user_input | lower == 'y' else 'false' }}"
+
+- name: Prompt for Ansible CLI installation
+  ansible.builtin.pause:
+    prompt: "Install Ansible CLI (y/n)?"
+  register: ansible_cli_choice
+- name: Set fact for Ansible CLI installation
+  ansible.builtin.set_fact:
+    install_ansible_cli: "{{ 'true' if ansible_cli_choice.user_input | lower == 'y' else 'false' }}"
+
+- name: Prompt for Ollama (Local LLM Server) installation
+  ansible.builtin.pause:
+    prompt: "Install Ollama (y/n)?"
+  register: ollama_choice
+- name: Set fact for Ollama installation
+  ansible.builtin.set_fact:
+    install_ollama: "{{ 'true' if ollama_choice.user_input | lower == 'y' else 'false' }}"
+
+- name: Prompt for MinIO Client (mc) installation
+  ansible.builtin.pause:
+    prompt: "Install MinIO Client (y/n)?"
+  register: minio_choice
+- name: Set fact for MinIO Client installation
+  ansible.builtin.set_fact:
+    install_minio_client: "{{ 'true' if minio_choice.user_input | lower == 'y' else 'false' }}"
+
+- name: Prompt for Argo CD CLI installation
+  ansible.builtin.pause:
+    prompt: "Install Argo CD CLI (y/n)?"
+  register: argocd_choice
+- name: Set fact for Argo CD CLI installation
+  ansible.builtin.set_fact:
+    install_argocd_cli: "{{ 'true' if argocd_choice.user_input | lower == 'y' else 'false' }}"
+
+- name: Prompt for Jenkins CLI / local setup installation
+  ansible.builtin.pause:
+    prompt: "Install Jenkins CLI/local setup (y/n)?"
+  register: jenkins_choice
+- name: Set fact for Jenkins CLI installation
+  ansible.builtin.set_fact:
+    install_jenkins_cli: "{{ 'true' if jenkins_choice.user_input | lower == 'y' else 'false' }}"
+
+- name: Prompt for Helm installation
+  ansible.builtin.pause:
+    prompt: "Install Helm (y/n)?"
+  register: helm_choice
+- name: Set fact for Helm installation
+  ansible.builtin.set_fact:
+    install_helm: "{{ 'true' if helm_choice.user_input | lower == 'y' else 'false' }}"
+
+# --- AI/ML/Data Science Tools ---
+- name: SECTION: AI/ML/Data Science Tools
+  ansible.builtin.debug:
+    msg: "--- Configuring AI/ML/Data Science Tools ---"
+
+- name: Prompt for Hugging Face CLI installation
+  ansible.builtin.pause:
+    prompt: "Install Hugging Face CLI (y/n)?"
+  register: huggingface_choice
+- name: Set fact for Hugging Face CLI installation
+  ansible.builtin.set_fact:
+    install_huggingface_cli: "{{ 'true' if huggingface_choice.user_input | lower == 'y' else 'false' }}"
+
+# --- Database Tools ---
+- name: SECTION: Database Tools
+  ansible.builtin.debug:
+    msg: "--- Configuring Database Tools ---"
+
+- name: Prompt for various DBMS clients (e.g., PostgreSQL, MySQL, Redis clients) installation
+  ansible.builtin.pause:
+    prompt: "Install Database Clients (y/n)?"
+  register: db_clients_choice
+- name: Set fact for DB Clients installation
+  ansible.builtin.set_fact:
+    install_db_clients: "{{ 'true' if db_clients_choice.user_input | lower == 'y' else 'false' }}"
+
+# --- Cloud Provider CLIs ---
+- name: SECTION: Cloud Provider CLIs
+  ansible.builtin.debug:
+    msg: "--- Configuring Cloud Provider CLIs ---"
+
+- name: Prompt for AWS CLI installation
+  ansible.builtin.pause:
+    prompt: "Install AWS CLI (y/n)?"
+  register: aws_cli_choice
+- name: Set fact for AWS CLI installation
+  ansible.builtin.set_fact:
+    install_aws_cli: "{{ 'true' if aws_cli_choice.user_input | lower == 'y' else 'false' }}"
+
+- name: Prompt for Gemini CLI (or Google Cloud CLI equivalent) installation
+  ansible.builtin.pause:
+    prompt: "Install Gemini CLI (y/n)?"
+  register: gemini_cli_choice
+- name: Set fact for Gemini CLI installation
+  ansible.builtin.set_fact:
+    install_gemini_cli: "{{ 'true' if gemini_cli_choice.user_input | lower == 'y' else 'false' }}"

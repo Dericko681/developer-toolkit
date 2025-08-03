@@ -1,0 +1,6 @@
+- name: common dev setup
+  hosts: all
+  gather_facts: true
+  roles:
+    - base_system
+ 

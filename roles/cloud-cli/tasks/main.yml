@@ -1,0 +1,8 @@
+# roles/cloud_clis/tasks/main.yml
+---
+- name: Include AWS CLI tasks
+  ansible.builtin.include_tasks: aws_cli.yml
+  when: install_aws_cli | bool
+
+- name: Include Gemini CLI tasks
+  ansible.builtin.include_tasks: gemini_cli.yml

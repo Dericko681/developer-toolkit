@@ -1,0 +1,6 @@
+---
+rust_version: "{{ rust_version | default('1.74.0') }}"
+java_version: "{{ java_version | default('17') }}"
+go_version: "{{ go_version | default('1.21.5') }}"
+nodejs_version: "{{ nodejs_version | default('18.18.0') }}"
+nvm_version: "{{ nvm_version | default('0.39.7') }}"

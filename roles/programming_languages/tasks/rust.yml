@@ -1,0 +1,23 @@
+---
+- name: Check if Rust is already installed
+  command: rustc --version
+  register: rustc_version
+  failed_when: false
+  changed_when: false
+
+- name: Install Rust using rustup
+  shell: |
+    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain {{ rust_version }} --no-modify-path
+  when: rustc_version.rc != 0
+
+- name: Ensure Rust environment is set up
+  lineinfile:
+    path: "{{ ansible_env.HOME }}/.bashrc"
+    line: 'source $HOME/.cargo/env'
+    create: yes
+
+
+- name: Verify Rust installation
+  command: rustc --version
+  register: rust_verify
+  changed_when: false

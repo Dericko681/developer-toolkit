@@ -1,19 +1,75 @@
-# roles/programming_languages/tasks/main.yml
 ---
+# Install programming languages based on user choices
+- name: Programming Languages Installation
+  ansible.builtin.debug:
+    msg: "Starting installation tasks for programming languages based on user choices."
+  tags:
+    - programming
+
+# Ensure common dependencies for language installations
+- name: Ensure build dependencies are installed
+  ansible.builtin.apt:
+    name:
+      - curl
+      - build-essential
+    state: present
+    update_cache: yes
+  become: yes
+  tags:
+    - programming
+    - dependencies
+
+# Include language-specific tasks based on user choices
 - name: Include Rust installation tasks
   ansible.builtin.include_tasks: rust.yml
-  when: install_rust | bool
+  when: install_rust is defined and install_rust | bool
+  tags:
+    - programming
+    - rust
 
 - name: Include Java installation tasks
   ansible.builtin.include_tasks: java.yml
-  when: install_java | bool
+  when: install_java is defined and install_java | bool
+  tags:
+    - programming
+    - java
 
 - name: Include Go installation tasks
   ansible.builtin.include_tasks: go.yml
-  when: install_go | bool
+  when: install_go is defined and install_go | bool
+  tags:
+    - programming
+    - go
 
 - name: Include Node.js installation tasks
   ansible.builtin.include_tasks: nodejs.yml
-  when: install_nodejs | bool
+  when: install_nodejs is defined and install_nodejs | bool
+  tags:
+    - programming
+    - nodejs
 
-# (You would create rust.yml, java.yml, go.yml, nodejs.yml in this same directory)
+- name: Include Python installation tasks
+  ansible.builtin.include_tasks: python.yml
+  when: install_python is defined and install_python | bool
+  tags:
+    - programming
+    - python
+
+# Verify installations
+- name: Verify programming language installations
+  ansible.builtin.command: "{{ item.cmd }}"
+  loop:
+    - { name: 'rust', cmd: 'rustc --version', when: 'install_rust | bool' }
+    - { name: 'java', cmd: 'java -version', when: 'install_java | bool' }
+    - { name: 'go', cmd: 'go version', when: 'install_go | bool' }
+    - { name: 'nodejs', cmd: 'node --version', when: 'install_nodejs | bool' }
+    - { name: 'python', cmd: 'python3 --version', when: 'install_python | bool' }
+  register: tool_versions
+  changed_when: false
+  failed_when: tool_versions.rc != 0
+  when: item.when
+  loop_control:
+    label: "{{ item.name }}"
+  tags:
+    - programming
+    - verification

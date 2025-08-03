@@ -1,9 +1,12 @@
-# roles/devops_cloud_native/tasks/k8s_cli.yml
 ---
-- name: Download kubectl binary
+# Install kubectl
+- name: Download kubectl
   ansible.builtin.get_url:
-    url: "https://dl.k8s.io/release/{{ k8s_version | default('v1.27.0') }}/bin/linux/amd64/kubectl"
-    dest: "/usr/local/bin/kubectl"
+    url: "https://dl.k8s.io/release/v{{ kubectl_version | default('1.28.0') }}/bin/linux/{{ ansible_architecture | regex_replace('x86_64', 'amd64') }}/kubectl"
+    dest: /usr/local/bin/kubectl
     mode: '0755'
+    checksum: "sha256:{{ lookup('url', 'https://dl.k8s.io/release/v' + (kubectl_version | default('1.28.0')) + '/bin/linux/' + (ansible_architecture | regex_replace('x86_64', 'amd64')) + '/kubectl.sha256') }}"
+  become: true
   tags:
+    - devops
     - k8s-cli

@@ -1,17 +1,22 @@
 ---
+# Install OpenJDK
 - name: Install OpenJDK
-  apt:
-    name: "openjdk-{{ java_version }}-jdk"
+  ansible.builtin.apt:
+    name: "openjdk-{{ java_version | default('17') }}-jdk"
     state: present
     update_cache: yes
+  become: true
+  tags:
+    - programming
+    - java
 
 - name: Set JAVA_HOME environment variable
-  lineinfile:
-    path: "{{ ansible_env.HOME }}/.bashrc"
-    line: 'export JAVA_HOME=/usr/lib/jvm/java-{{ java_version }}-openjdk-amd64'
+  ansible.builtin.lineinfile:
+    path: "{{ ansible_env.HOME }}/.zshrc"
+    line: "export JAVA_HOME=/usr/lib/jvm/java-{{ java_version | default('17') }}-openjdk-amd64"
     create: yes
-
-- name: Verify Java installation
-  command: java -version
-  register: java_verify
-  changed_when: false
+    mode: '0644'
+  become: false
+  tags:
+    - programming
+    - java

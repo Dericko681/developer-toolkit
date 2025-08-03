@@ -1,19 +1,22 @@
-# roles/devops_cloud_native/tasks/jenkins_cli.yml
 ---
-- name: Install OpenJDK, which is a prerequisite for the Jenkins CLI
+# Install Jenkins CLI (requires Java from programming_languages)
+- name: Ensure Java is installed
   ansible.builtin.apt:
-    name: openjdk-17-jdk
+    name: "openjdk-{{ java_version | default('17') }}-jdk"
     state: present
-    update_cache: yes
+  become: true
   tags:
+    - devops
     - jenkins-cli
 
-- name: Display instructions for using Jenkins CLI
-  ansible.builtin.debug:
-    msg: |
-      Jenkins CLI requires you to download the JAR file directly from your Jenkins server.
-      1. Navigate to 'your-jenkins-server.com/jnlpJars/jenkins-cli.jar'
-      2. Download the file and place it in a desired location, e.g., '/usr/local/bin/jenkins-cli.jar'
-      3. Use 'java -jar /usr/local/bin/jenkins-cli.jar' to run the client.
+- name: Download Jenkins CLI
+  ansible.builtin.get_url:
+    url: http://localhost:8080/jnlpJars/jenkins-cli.jar
+    dest: "{{ ansible_env.HOME }}/.jenkins/jenkins-cli.jar"
+    mode: '0644'
+    validate_certs: no  # Localhost may not have valid cert
+  become: false
   tags:
+    - devops
     - jenkins-cli
+  ignore_errors: true  # Jenkins server may not be running locally

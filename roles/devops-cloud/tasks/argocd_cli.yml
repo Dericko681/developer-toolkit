@@ -1,46 +1,11 @@
-
-# roles/devops_cloud_native/tasks/argocd_cli.yml
 ---
-- name: Get the latest Argo CD CLI version
-  ansible.builtin.uri:
-    url: https://api.github.com/repos/argoproj/argo-cd/releases/latest
-    return_content: yes
-  register: argocd_release
-  tags:
-    - argocd-cli
-
-- name: Set fact for Argo CD CLI download URL
-  ansible.builtin.set_fact:
-    argocd_download_url: "{{ argocd_release.json.assets | selectattr('name', 'match', '.*linux-amd64') | map(attribute='browser_download_url') | first }}"
-  tags:
-    - argocd-cli
-
-- name: Download Argo CD CLI binary
+# Install Argo CD CLI
+- name: Download Argo CD CLI
   ansible.builtin.get_url:
-    url: "{{ argocd_download_url }}"
-    dest: "/tmp/argocd"
-    mode: '0755'
-  tags:
-    - argocd-cli
-
-- name: Move Argo CD CLI binary to /usr/local/bin
-  ansible.builtin.copy:
-    src: /tmp/argocd
+    url: "https://github.com/argoproj/argo-cd/releases/download/v{{ argocd_version | default('2.9.0') }}/argocd-linux-{{ ansible_architecture | regex_replace('x86_64', 'amd64') }}"
     dest: /usr/local/bin/argocd
-    remote_src: yes
     mode: '0755'
+  become: true
   tags:
-    - argocd-cli
-
-- name: Clean up temporary file
-  ansible.builtin.file:
-    path: /tmp/argocd
-    state: absent
-  tags:
-    - argocd-cli
-
-- name: Display Argo CD CLI installation confirmation
-  ansible.builtin.debug:
-    msg: "Argo CD CLI has been installed. To configure, run 'argocd login [ARGOCD_SERVER]'."
-  tags:
+    - devops
     - argocd-cli

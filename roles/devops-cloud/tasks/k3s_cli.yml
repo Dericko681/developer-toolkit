@@ -1,31 +1,33 @@
-# roles/devops_cloud_native/tasks/k3s_cli.yml
 ---
-- name: Download K3s installer script
+# Install K3s client tools
+- name: Download K3s installer
   ansible.builtin.get_url:
     url: https://get.k3s.io
     dest: /tmp/k3s-install.sh
     mode: '0755'
+  become: true
+  when: install_k3s_cli | bool
   tags:
+    - devops
     - k3s-cli
 
-- name: Run K3s installer with no install, just get binary
-  ansible.builtin.shell: |
-    INSTALL_K3S_SKIP_DOWNLOAD=true INSTALL_K3S_SKIP_ENABLE=true /tmp/k3s-install.sh
-  args:
-    executable: /bin/bash
+- name: Install K3s client tools
+  ansible.builtin.command:
+    cmd: /tmp/k3s-install.sh --version {{ k3s_version | default('1.28.2+k3s1') }} --client-only
     creates: /usr/local/bin/k3s
+  become: true
+  when: install_k3s_cli | bool
   tags:
+    - devops
     - k3s-cli
 
-- name: Clean up K3s installer script
-  ansible.builtin.file:
-    path: /tmp/k3s-install.sh
-    state: absent
+- name: Verify K3s installation
+  ansible.builtin.command: k3s --version
+  register: k3s_version
+  changed_when: false
+  failed_when: k3s_version.rc != 0
+  when: install_k3s_cli | bool
   tags:
+    - devops
     - k3s-cli
-
-- name: Display K3s client tools installation confirmation
-  ansible.builtin.debug:
-    msg: "K3s client tools have been installed. To use them, you will need to configure your KUBECONFIG."
-  tags:
-    - k3s-cli
+    - verification

@@ -1,0 +1,39 @@
+---
+# Install CLI Tools (jq, yq)
+- name: CLI Tools Installation
+  ansible.builtin.debug:
+    msg: "Starting installation tasks for CLI Tools (jq, yq)."
+  tags:
+    - cli-tools
+
+- name: Install jq
+  ansible.builtin.apt:
+    name: jq={{ jq_version | default('1.6') }}
+    state: present
+    update_cache: yes
+  become: yes
+  tags:
+    - cli-tools
+    - jq
+
+- name: Download yq
+  ansible.builtin.get_url:
+    url: https://github.com/mikefarah/yq/releases/download/v{{ yq_version | default('4.35.2') }}/yq_linux_{{ ansible_architecture | regex_replace('x86_64', 'amd64') }}
+    dest: /usr/local/bin/yq
+    mode: '0755'
+  become: yes
+  tags:
+    - cli-tools
+    - yq
+
+- name: Verify CLI tools installation
+  ansible.builtin.command: "{{ item.cmd }}"
+  loop:
+    - { name: 'jq', cmd: 'jq --version' }
+    - { name: 'yq', cmd: 'yq --version' }
+  register: tool_versions
+  changed_when: false
+  failed_when: tool_versions.rc != 0
+  tags:
+    - cli-tools
+    - verification

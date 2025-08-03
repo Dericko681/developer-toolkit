@@ -1,0 +1,57 @@
+---
+# Install IDEs and Editors (VS Code only)
+- name: IDEs and Editors Installation
+  ansible.builtin.debug:
+    msg: "Starting installation tasks for IDEs and Editors (VS Code)."
+  tags:
+    - ide-editors
+
+- name: Ensure dependencies for APT repository
+  ansible.builtin.apt:
+    name:
+      - apt-transport-https
+      - curl
+    state: present
+    update_cache: yes
+  become: yes
+  tags:
+    - ide-editors
+    - dependencies
+
+- name: Add Microsoft GPG key for VS Code
+  ansible.builtin.apt_key:
+    url: https://packages.microsoft.com/keys/microsoft.asc
+    state: present
+  become: yes
+  tags:
+    - ide-editors
+    - vscode
+
+- name: Add VS Code APT repository
+  ansible.builtin.apt_repository:
+    repo: deb [arch=amd64] https://packages.microsoft.com/repos/code stable main
+    state: present
+    filename: vscode
+  become: yes
+  tags:
+    - ide-editors
+    - vscode
+
+- name: Install VS Code
+  ansible.builtin.apt:
+    name: code={{ vscode_version | default('latest') }}
+    state: present
+    update_cache: yes
+  become: yes
+  tags:
+    - ide-editors
+    - vscode
+
+- name: Verify VS Code installation
+  ansible.builtin.command: code --version
+  register: vscode_version
+  changed_when: false
+  failed_when: vscode_version.rc != 0
+  tags:
+    - ide-editors
+    - verification

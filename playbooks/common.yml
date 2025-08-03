@@ -1,6 +1,11 @@
-- name: common dev setup
-  hosts: all
-  gather_facts: true
-  roles:
-    - base_system
- 
+---
+- name: Common Setup Tasks
+  hosts: local
+  become: yes
+  tasks:
+    - name: Ensure system is up-to-date
+      ansible.builtin.apt:
+        update_cache: yes
+        upgrade: dist
+      tags:
+        - common

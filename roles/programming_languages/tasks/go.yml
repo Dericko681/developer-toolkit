@@ -1,43 +1,60 @@
 ---
+# Install Go
 - name: Check if Go is already installed
-  command: go version
+  ansible.builtin.command: go version
   register: go_version_check
   failed_when: false
   changed_when: false
+  tags:
+    - programming
+    - go
 
 - name: Download Go tarball
-  get_url:
-    url: "https://golang.org/dl/go{{ go_version }}.linux-amd64.tar.gz"
-    dest: "/tmp/go{{ go_version }}.linux-amd64.tar.gz"
+  ansible.builtin.get_url:
+    url: "https://golang.org/dl/go{{ go_version | default('1.21.5') }}.linux-{{ ansible_architecture | regex_replace('x86_64', 'amd64') }}.tar.gz"
+    dest: "/tmp/go{{ go_version | default('1.21.5') }}.tar.gz"
     mode: '0644'
+  become: true
   when: go_version_check.rc != 0
+  tags:
+    - programming
+    - go
 
 - name: Extract Go tarball
-  unarchive:
-    src: "/tmp/go{{ go_version }}.linux-amd64.tar.gz"
+  ansible.builtin.unarchive:
+    src: "/tmp/go{{ go_version | default('1.21.5') }}.tar.gz"
     dest: /usr/local
     remote_src: yes
+    creates: /usr/local/go
+  become: true
   when: go_version_check.rc != 0
+  tags:
+    - programming
+    - go
 
 - name: Set Go environment variables
-  lineinfile:
-    path: "{{ ansible_env.HOME }}/.bashrc"
+  ansible.builtin.lineinfile:
+    path: "{{ ansible_env.HOME }}/.zshrc"
     line: "{{ item }}"
     create: yes
+    mode: '0644'
   loop:
     - 'export GOROOT=/usr/local/go'
     - 'export GOPATH=$HOME/go'
     - 'export PATH=$GOPATH/bin:$GOROOT/bin:$PATH'
+  become: false
   when: go_version_check.rc != 0
+  tags:
+    - programming
+    - go
 
 - name: Create Go workspace directory
-  file:
+  ansible.builtin.file:
     path: "{{ ansible_env.HOME }}/go"
     state: directory
     mode: '0755'
+  become: false
   when: go_version_check.rc != 0
-
-- name: Verify Go installation
-  command: go version
-  register: go_verify
-  changed_when: false
+  tags:
+    - programming
+    - go

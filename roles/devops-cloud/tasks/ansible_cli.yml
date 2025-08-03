@@ -1,9 +1,33 @@
-# roles/devops_cloud_native/tasks/ansible_cli.yml
 ---
-- name: Install Ansible Core via apt
+# Install Ansible CLI
+- name: Install Ansible dependencies
   ansible.builtin.apt:
-    name: ansible
+    name:
+      - python3
+      - python3-pip
     state: present
-    update_cache: yes
+  become: true
   tags:
+    - devops
+    - ansible-cli
+
+- name: Install Ansible via pip
+  ansible.builtin.pip:
+    name: ansible=={{ ansible_version | default('8.0.0') }}
+    executable: pip3
+    state: present
+  become: false
+  tags:
+    - devops
+    - ansible-cli
+
+- name: Ensure Ansible is in PATH
+  ansible.builtin.lineinfile:
+    path: "{{ ansible_env.HOME }}/.zshrc"
+    line: 'export PATH="$HOME/.local/bin:$PATH"'
+    create: yes
+    mode: '0644'
+  become: false
+  tags:
+    - devops
     - ansible-cli

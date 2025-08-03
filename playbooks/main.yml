@@ -1,42 +1,16 @@
-# playbooks/main.yml
 ---
-- name: Provision Development Environment with User Choices
+- name: Provision Developer Toolkit
   hosts: all
   become: yes
-  gather_facts: yes
-
   roles:
-    # This role must run first to gather user input and set facts
-    - role: prompt_user
-
-    # Always install base system components and essential tools
-    - role: base_system
-
-    # Conditionally include other roles based on user choices
-    - role: programming_languages
-      # This condition checks if ANY language role needs to run
-      when: install_rust | bool or install_java | bool or install_go | bool or install_nodejs | bool
-
-    - role: devops-cloud
-      when: install_terraform | bool or install_k8s_cli | bool or install_k9s | bool or \
-            install_k3s_cli | bool or install_ansible_cli | bool or install_ollama | bool or \
-            install_minio_client | bool or install_argocd_cli | bool or \
-            install_jenkins_cli | bool or install_helm | bool
-
-    - role: ai-ml-datascience
-      when: install_jupyterlab | bool or install_pytorch | bool or install_tensorflow | bool or \
-            install_huggingface_cli | bool
-     
-     
-    - role: databases # Assuming this role will install clients based on install_db_clients
-      when: install_db_clients | bool
-
-    - role: cloud_clis
-      when: install_aws_cli | bool or install_gemini_cli | bool
-
-    # Include existing roles as before. Their internal tasks should also use 'when' conditions
-    # based on the variables set by prompt_user, if they contain multiple tools.
-    - role: ide_editors
-    - role: version_control
-    - role: containerization # Already handles Docker and Multipass, ensure it uses their flags
-    - role: cli_tools # Already handles zsh, tmux, htop.
+    - prompt_user
+    - base_system
+    - programming_languages
+    - devops-cloud
+    - ai-ml-dataScience
+    - databases
+    - cloud-cli
+    - ide_editors
+    - version_control
+    - containerization
+    - cli_tools

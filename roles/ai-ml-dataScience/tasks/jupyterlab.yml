@@ -1,22 +1,22 @@
-# roles/ai-ml-datascience/tasks/jupyterlab.yml
 ---
-- name: Ensure Python 3 pip is installed
-  ansible.builtin.apt:
-    name: python3-pip
-    state: present
-  tags:
-    - jupyterlab
-
-- name: Install JupyterLab using pip
+# Install JupyterLab
+- name: Install JupyterLab via pip
   ansible.builtin.pip:
-    name: jupyterlab
-    state: present
+    name: jupyterlab=={{ jupyterlab_version | default('4.0.0') }}
     executable: pip3
+    state: present
+  become: false
   tags:
+    - ai-ml
     - jupyterlab
 
-- name: Display instructions for running JupyterLab
-  ansible.builtin.debug:
-    msg: "JupyterLab has been installed. To start it, run 'jupyter-lab' from your terminal."
+- name: Ensure JupyterLab is in PATH
+  ansible.builtin.lineinfile:
+    path: "{{ ansible_env.HOME }}/.zshrc"
+    line: 'export PATH="$HOME/.local/bin:$PATH"'
+    create: yes
+    mode: '0644'
+  become: false
   tags:
+    - ai-ml
     - jupyterlab

@@ -1,9 +1,24 @@
-# roles/databases/tasks/main.yml
 ---
+# Install database tools and servers based on user choices
 - name: Database Tools Installation
   ansible.builtin.debug:
     msg: "Starting installation tasks for database tools based on user choices."
+  tags:
+    - databases
 
+# Ensure common dependencies for database tools
+- name: Ensure database client dependencies are installed
+  ansible.builtin.apt:
+    name:
+      - libpq-dev  # For PostgreSQL client
+    state: present
+    update_cache: yes
+  become: yes
+  tags:
+    - databases
+    - dependencies
+
+# Include common database clients installation tasks
 - name: Include common database clients installation tasks
   ansible.builtin.include_tasks: db_clients.yml
   when: install_db_clients is defined and install_db_clients | bool
@@ -11,12 +26,34 @@
     - databases
     - db-clients
 
-# You could expand this role later to include full database servers
-# for local development (e.g., PostgreSQL, MySQL server via apt/docker).
-# Example (if you had an install_postgresql_server variable and a postgresql_server.yml):
-# - name: Include PostgreSQL server installation tasks
-#   ansible.builtin.include_tasks: postgresql_server.yml
-#   when: install_postgresql_server is defined and install_postgresql_server | bool
-#   tags:
-#     - databases
-#     - postgresql-server
+# Include PostgreSQL client installation tasks
+- name: Include PostgreSQL client installation tasks
+  ansible.builtin.include_tasks: postgresql.yml
+  when: install_db_clients is defined and install_db_clients | bool
+  tags:
+    - databases
+    - postgresql
+
+# Include PostgreSQL server installation tasks (optional)
+- name: Include PostgreSQL server installation tasks
+  ansible.builtin.include_tasks: postgresql_server.yml
+  when: install_postgresql_server is defined and install_postgresql_server | bool
+  tags:
+    - databases
+    - postgresql-server
+
+# Verify installations
+- name: Verify database tool installations
+  ansible.builtin.command: "{{ item.cmd }}"
+  loop:
+    - { name: 'psql', cmd: 'psql --version', when: 'install_db_clients | bool' }
+    - { name: 'postgresql-server', cmd: 'pg_isready', when: 'install_postgresql_server | bool' }
+  register: tool_versions
+  changed_when: false
+  failed_when: tool_versions.rc != 0
+  when: item.when
+  loop_control:
+    label: "{{ item.name }}"
+  tags:
+    - databases
+    - verification

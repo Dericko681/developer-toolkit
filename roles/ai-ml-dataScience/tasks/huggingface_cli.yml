@@ -1,22 +1,22 @@
-# roles/ai-ml-datascience/tasks/huggingface_cli.yml
 ---
-- name: Ensure Python 3 pip is installed
-  ansible.builtin.apt:
-    name: python3-pip
-    state: present
-  tags:
-    - huggingface-cli
-
-- name: Install Hugging Face CLI using pip
+# Install Hugging Face CLI
+- name: Install Hugging Face CLI via pip
   ansible.builtin.pip:
-    name: huggingface_hub
-    state: present
+    name: huggingface_hub[cli]
     executable: pip3
+    state: present
+  become: false
   tags:
+    - ai-ml
     - huggingface-cli
 
-- name: Display instructions for Hugging Face CLI login
-  ansible.builtin.debug:
-    msg: "Hugging Face CLI (huggingface_hub) has been installed. To use it, you may need to authenticate by running 'huggingface-cli login' and providing your Hugging Face token."
+- name: Ensure Hugging Face CLI is in PATH
+  ansible.builtin.lineinfile:
+    path: "{{ ansible_env.HOME }}/.zshrc"
+    line: 'export PATH="$HOME/.local/bin:$PATH"'
+    create: yes
+    mode: '0644'
+  become: false
   tags:
+    - ai-ml
     - huggingface-cli

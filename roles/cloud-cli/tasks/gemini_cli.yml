@@ -1,44 +1,42 @@
-# roles/cloud_clis/tasks/gemini_cli.yml
 ---
-- name: Google Cloud CLI (Gemini CLI) Installation
-  ansible.builtin.debug:
-    msg: "Installing Google Cloud CLI..."
-  tags:
-    - gemini-cli
-
-- name: Ensure gnupg is installed
-  ansible.builtin.apt:
-    name: gnupg
-    state: present
-    update_cache: yes
-  tags:
-    - gemini-cli
-
-- name: Add Google Cloud's GPG key
-  ansible.builtin.apt_key:
-    url: https://packages.cloud.google.com/apt/doc/apt-key.gpg
-    state: present
-  tags:
-    - gemini-cli
-
-- name: Add Google Cloud SDK repository
+# Install Google Cloud SDK (gcloud)
+- name: Add Google Cloud SDK APT repository
   ansible.builtin.apt_repository:
-    repo: deb [arch=amd64] https://packages.cloud.google.com/apt cloud-sdk main
+    repo: deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main
     state: present
     filename: google-cloud-sdk
+  become: true
   tags:
-    - gemini-cli
+    - cloud-cli
+    - gcloud
 
-- name: Install the Google Cloud CLI
+- name: Add Google Cloud SDK GPG key
+  ansible.builtin.apt_key:
+    url: https://packages.cloud.google.com/apt/doc/apt-key.gpg
+    keyring: /usr/share/keyrings/cloud.google.gpg
+    state: present
+  become: true
+  tags:
+    - cloud-cli
+    - gcloud
+
+- name: Install Google Cloud SDK
   ansible.builtin.apt:
-    name: google-cloud-cli
+    name: google-cloud-sdk={{ gcloud_version | default('447.0.0-0') }}
     state: present
     update_cache: yes
+  become: true
   tags:
-    - gemini-cli
+    - cloud-cli
+    - gcloud
 
-- name: Display Google Cloud CLI installation confirmation
-  ansible.builtin.debug:
-    msg: "Google Cloud CLI has been installed. To complete setup, run 'gcloud init' in your terminal."
+- name: Ensure Google Cloud SDK is in PATH
+  ansible.builtin.lineinfile:
+    path: "{{ ansible_env.HOME }}/.zshrc"
+    line: 'export PATH="/usr/lib/google-cloud-sdk/bin:$PATH"'
+    create: yes
+    mode: '0644'
+  become: false
   tags:
-    - gemini-cli
+    - cloud-cli
+    - gcloud

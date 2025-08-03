@@ -1,9 +1,12 @@
-# roles/devops_cloud_native/tasks/minio_client.yml
 ---
-- name: Download MinIO Client binary
+# Install MinIO Client (mc)
+- name: Download MinIO Client
   ansible.builtin.get_url:
-    url: "https://dl.min.io/client/mc/release/linux-amd64/mc"
-    dest: "/usr/local/bin/mc"
+    url: https://dl.min.io/client/mc/release/linux-amd64/mc
+    dest: /usr/local/bin/mc
     mode: '0755'
+    checksum: sha256:{{ lookup('url', 'https://dl.min.io/client/mc/release/linux-amd64/mc.sha256sum') | regex_search('([a-f0-9]+)', '\\1') | first }}
+  become: true
   tags:
+    - devops
     - minio-client

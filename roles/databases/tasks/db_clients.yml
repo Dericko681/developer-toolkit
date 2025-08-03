@@ -1,24 +1,33 @@
-# roles/databases/tasks/db_clients.yml
 ---
-- name: Install PostgreSQL client tools
+# Install common database clients
+- name: Install PostgreSQL client
   ansible.builtin.apt:
-    name: postgresql-client
+    name: postgresql-client-{{ postgresql_version | default('14') }}
     state: present
     update_cache: yes
+  become: true
   tags:
+    - databases
     - db-clients
-    - postgresql-client
+    - postgresql
 
-- name: Install MySQL client tools
+# Placeholder for additional database clients (e.g., MySQL, Redis)
+- name: Install MySQL client
   ansible.builtin.apt:
-    name: default-mysql-client # Use 'default-mysql-client' for a common, stable package
+    name: mysql-client
     state: present
+  become: true
   tags:
+    - databases
     - db-clients
-    - mysql-client
+    - mysql
 
-- name: Display confirmation for database clients
-  ansible.builtin.debug:
-    msg: "Common database client tools (PostgreSQL, MySQL) have been installed."
+- name: Install Redis client
+  ansible.builtin.apt:
+    name: redis-tools
+    state: present
+  become: true
   tags:
+    - databases
     - db-clients
+    - redis

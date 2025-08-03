@@ -1,16 +1,21 @@
-# roles/devops_cloud_native/tasks/ollama.yml
 ---
-- name: Install Ollama using the official script
-  ansible.builtin.shell: |
-    curl -fsSL https://ollama.com/install.sh | sh
-  args:
-    executable: /bin/bash
-    creates: /usr/local/bin/ollama # Check if the binary exists to prevent re-running
+# Install Ollama
+- name: Download Ollama installer
+  ansible.builtin.get_url:
+    url: https://ollama.ai/install.sh
+    dest: /tmp/ollama-install.sh
+    mode: '0755'
+    checksum: sha256:{{ lookup('url', 'https://ollama.ai/install.sh') | hash('sha256') }}
+  become: true
   tags:
+    - devops
     - ollama
 
-- name: Display Ollama installation confirmation
-  ansible.builtin.debug:
-    msg: "Ollama has been installed as a service. To start, run 'ollama serve' or check the service status."
+- name: Install Ollama
+  ansible.builtin.command:
+    cmd: /tmp/ollama-install.sh
+    creates: /usr/local/bin/ollama
+  become: true
   tags:
+    - devops
     - ollama

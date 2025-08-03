@@ -1,0 +1,26 @@
+---
+# Install Version Control tools (Git)
+- name: Version Control Tools Installation
+  ansible.builtin.debug:
+    msg: "Starting installation tasks for Version Control tools (Git)."
+  tags:
+    - version-control
+
+- name: Install Git
+  ansible.builtin.apt:
+    name: git={{ git_version | default('2.34.1') }}
+    state: present
+    update_cache: yes
+  become: yes
+  tags:
+    - version-control
+    - git
+
+- name: Verify Git installation
+  ansible.builtin.command: git --version
+  register: git_version
+  changed_when: false
+  failed_when: git_version.rc != 0
+  tags:
+    - version-control
+    - verification

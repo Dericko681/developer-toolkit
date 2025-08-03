@@ -1,23 +1,31 @@
 ---
+# Install Rust using rustup
 - name: Check if Rust is already installed
-  command: rustc --version
+  ansible.builtin.command: rustc --version
   register: rustc_version
   failed_when: false
   changed_when: false
+  tags:
+    - programming
+    - rust
 
 - name: Install Rust using rustup
-  shell: |
-    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain {{ rust_version }} --no-modify-path
+  ansible.builtin.shell:
+    cmd: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain {{ rust_version | default('1.74.0') }} --no-modify-path
+    creates: "{{ ansible_env.HOME }}/.cargo/bin/rustc"
+  become: false
   when: rustc_version.rc != 0
+  tags:
+    - programming
+    - rust
 
-- name: Ensure Rust environment is set up
-  lineinfile:
-    path: "{{ ansible_env.HOME }}/.bashrc"
+- name: Add Rust to PATH in .zshrc
+  ansible.builtin.lineinfile:
+    path: "{{ ansible_env.HOME }}/.zshrc"
     line: 'source $HOME/.cargo/env'
     create: yes
-
-
-- name: Verify Rust installation
-  command: rustc --version
-  register: rust_verify
-  changed_when: false
+    mode: '0644'
+  become: false
+  tags:
+    - programming
+    - rust

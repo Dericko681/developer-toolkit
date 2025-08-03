@@ -1,0 +1,45 @@
+---
+# Install Python
+- name: Check if Python is already installed
+  ansible.builtin.command: python3 --version
+  register: python_version_check
+  failed_when: false
+  changed_when: false
+  tags:
+    - programming
+    - python
+
+- name: Install Python and pip
+  ansible.builtin.apt:
+    name:
+      - python3={{ python_version | default('3.10') }}
+      - python3-pip
+      - python3-venv
+    state: present
+    update_cache: yes
+  become: true
+  when: python_version_check.rc != 0 or '3.10' not in python_version_check.stdout
+  tags:
+    - programming
+    - python
+
+- name: Ensure pip is upgraded
+  ansible.builtin.pip:
+    name: pip
+    state: latest
+    executable: pip3
+  become: false
+  tags:
+    - programming
+    - python
+
+- name: Add Python to PATH in .zshrc
+  ansible.builtin.lineinfile:
+    path: "{{ ansible_env.HOME }}/.zshrc"
+    line: 'export PATH="$HOME/.local/bin:$PATH"'
+    create: yes
+    mode: '0644'
+  become: false
+  tags:
+    - programming
+    - python

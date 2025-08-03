@@ -1,24 +1,23 @@
-# roles/devops_cloud_native/tasks/terraform.yml
 ---
-- name: Add HashiCorp GPG key
-  ansible.builtin.apt_key:
-    url: https://apt.releases.hashicorp.com/gpg
-    state: present
+# Install Terraform
+- name: Download Terraform
+  ansible.builtin.get_url:
+    url: "https://releases.hashicorp.com/terraform/{{ terraform_version | default('1.9.4') }}/terraform_{{ terraform_version | default('1.9.4') }}_linux_amd64.zip"
+    dest: "/tmp/terraform_{{ terraform_version | default('1.9.4') }}.zip"
+    checksum: "sha256:{{ lookup('url', 'https://releases.hashicorp.com/terraform/' + (terraform_version | default('1.9.4')) + '/terraform_' + (terraform_version | default('1.9.4')) + '_SHA256SUMS') | regex_search('terraform_' + (terraform_version | default('1.9.4')) + '_linux_amd64.zip\\s+([a-f0-9]+)', '\\1') | first }}"
+    mode: '0644'
+  become: true
   tags:
+    - devops
     - terraform
 
-- name: Add HashiCorp apt repository
-  ansible.builtin.apt_repository:
-    repo: deb [arch=amd64] https://apt.releases.hashicorp.com {{ ansible_distribution_release }} main
-    state: present
-    filename: hashicorp
+- name: Extract Terraform
+  ansible.builtin.unarchive:
+    src: "/tmp/terraform_{{ terraform_version | default('1.9.4') }}.zip"
+    dest: /usr/local/bin
+    remote_src: yes
+    creates: /usr/local/bin/terraform
+  become: true
   tags:
-    - terraform
-
-- name: Install Terraform
-  ansible.builtin.apt:
-    name: terraform
-    state: present
-    update_cache: yes
-  tags:
+    - devops
     - terraform

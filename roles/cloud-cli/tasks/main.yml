@@ -1,8 +1,53 @@
-# roles/cloud_clis/tasks/main.yml
 ---
-- name: Include AWS CLI tasks
-  ansible.builtin.include_tasks: aws_cli.yml
-  when: install_aws_cli | bool
+# Install cloud provider CLIs based on user choices
+- name: Cloud Provider CLIs Installation
+  ansible.builtin.debug:
+    msg: "Starting installation tasks for cloud provider CLIs based on user choices."
+  tags:
+    - cloud-cli
 
-- name: Include Gemini CLI tasks
+# Ensure common dependencies for cloud CLIs
+- name: Ensure cloud CLI dependencies are installed
+  ansible.builtin.apt:
+    name:
+      - curl
+      - unzip
+      - python3
+      - python3-pip
+    state: present
+    update_cache: yes
+  become: yes
+  tags:
+    - cloud-cli
+    - dependencies
+
+# Include CLI-specific tasks based on user choices
+- name: Include AWS CLI installation tasks
+  ansible.builtin.include_tasks: aws_cli.yml
+  when: install_aws_cli is defined and install_aws_cli | bool
+  tags:
+    - cloud-cli
+    - aws-cli
+
+- name: Include Google Cloud SDK (gcloud) installation tasks
   ansible.builtin.include_tasks: gemini_cli.yml
+  when: install_gemini_cli is defined and install_gemini_cli | bool
+  tags:
+    - cloud-cli
+    - gcloud
+
+# Verify installations
+- name: Verify cloud CLI installations
+  ansible.builtin.command: "{{ item.cmd }}"
+  loop:
+    - { name: 'aws-cli', cmd: 'aws --version', when: 'install_aws_cli | bool' }
+    - { name: 'gcloud', cmd: 'gcloud --version', when: 'install_gemini_cli | bool' }
+  register: tool_versions
+  changed_when: false
+  failed_when: tool_versions.rc != 0
+  when: item.when
+  loop_control:
+    label: "{{ item.name }}"
+  tags:
+    - cloud-cli
+    - verification

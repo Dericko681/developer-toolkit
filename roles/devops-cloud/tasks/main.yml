@@ -1,9 +1,26 @@
-# roles/devops_cloud_native/tasks/main.yml
 ---
+# Install DevOps and Cloud Native tools based on user choices
 - name: DevOps & Cloud Native Tools Installation
   ansible.builtin.debug:
     msg: "Starting installation tasks for DevOps & Cloud Native tools based on user choices."
+  tags:
+    - devops
 
+# Ensure common dependencies are installed
+- name: Ensure common dependencies are installed
+  ansible.builtin.apt:
+    name:
+      - curl
+      - wget
+      - gnupg
+    state: present
+    update_cache: yes
+  become: yes
+  tags:
+    - devops
+    - dependencies
+
+# Include tool-specific tasks based on user choices
 - name: Include Terraform installation tasks
   ansible.builtin.include_tasks: terraform.yml
   when: install_terraform is defined and install_terraform | bool
@@ -73,3 +90,26 @@
   tags:
     - devops
     - helm
+
+# Verify installations
+- name: Verify DevOps tool installations
+  ansible.builtin.command: "{{ item.cmd }}"
+  loop:
+    - { name: 'terraform', cmd: 'terraform --version', when: 'install_terraform | bool' }
+    - { name: 'kubectl', cmd: 'kubectl version --client', when: 'install_k8s_cli | bool' }
+    - { name: 'k9s', cmd: 'k9s version', when: 'install_k9s | bool' }
+    - { name: 'k3s', cmd: 'k3s --version', when: 'install_k3s_cli | bool' }
+    - { name: 'ansible', cmd: 'ansible --version', when: 'install_ansible_cli | bool' }
+    - { name: 'ollama', cmd: 'ollama --version', when: 'install_ollama | bool' }
+    - { name: 'minio-client', cmd: 'mc --version', when: 'install_minio_client | bool' }
+    - { name: 'argocd', cmd: 'argocd version --client', when: 'install_argocd_cli | bool' }
+    - { name: 'helm', cmd: 'helm version', when: 'install_helm | bool' }
+  register: tool_versions
+  changed_when: false
+  failed_when: tool_versions.rc != 0
+  when: item.when
+  loop_control:
+    label: "{{ item.name }}"
+  tags:
+    - devops
+    - verification

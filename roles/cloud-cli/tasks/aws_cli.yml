@@ -1,51 +1,30 @@
-# roles/cloud_clis/tasks/aws_cli.yml
 ---
-- name: AWS CLI Installation
-  ansible.builtin.debug:
-    msg: "Installing AWS CLI v2..."
-  tags:
-    - aws-cli
-
-- name: Create a temporary directory for the AWS CLI installer
-  ansible.builtin.file:
-    path: /tmp/aws-cli-install
-    state: directory
-    mode: '0755'
-  tags:
-    - aws-cli
-
-- name: Download the AWS CLI v2 installer
+# Install AWS CLI
+- name: Download AWS CLI installer
   ansible.builtin.get_url:
-    url: "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip"
-    dest: "/tmp/awscli-install/awscli-bundle.zip"
+    url: https://awscli.amazonaws.com/awscli-exe-linux-{{ ansible_architecture | regex_replace('x86_64', 'x86_64') | regex_replace('aarch64', 'aarch64') }}.zip
+    dest: /tmp/awscliv2.zip
     mode: '0644'
+  become: true
   tags:
+    - cloud-cli
     - aws-cli
 
-- name: Unarchive the AWS CLI v2 installer
+- name: Extract AWS CLI
   ansible.builtin.unarchive:
-    src: "/tmp/awscli-install/awscli-bundle.zip"
-    dest: "/tmp/awscli-install/"
+    src: /tmp/awscliv2.zip
+    dest: /tmp
     remote_src: yes
+  become: true
   tags:
+    - cloud-cli
     - aws-cli
 
-- name: Run the AWS CLI install script
-  ansible.builtin.command: "/tmp/awscli-install/aws/install"
-  args:
-    creates: "/usr/local/bin/aws" # This makes the task idempotent
+- name: Install AWS CLI
+  ansible.builtin.command:
+    cmd: /tmp/aws/install --bin-dir /usr/local/bin --install-dir /usr/local/aws-cli --update
+    creates: /usr/local/bin/aws
+  become: true
   tags:
-    - aws-cli
-
-- name: Clean up temporary directory
-  ansible.builtin.file:
-    path: /tmp/aws-cli-install
-    state: absent
-  tags:
-    - aws-cli
-
-- name: Display AWS CLI installation confirmation
-  ansible.builtin.debug:
-    msg: "AWS CLI has been installed. To configure it, run 'aws configure' in your terminal."
-  tags:
+    - cloud-cli
     - aws-cli

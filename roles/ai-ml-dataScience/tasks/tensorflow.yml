@@ -1,22 +1,37 @@
-# roles/ai-ml-datascience/tasks/tensorflow.yml
 ---
-- name: Ensure Python 3 pip is installed
+# Install NVIDIA drivers and CUDA (if GPU available, shared with PyTorch)
+- name: Add NVIDIA driver repository
+  ansible.builtin.apt_repository:
+    repo: "deb http://deb.debian.org/debian {{ ansible_distribution_release }} main contrib non-free"
+    state: present
+  become: true
+  when: gpu_available | bool
+  tags:
+    - ai-ml
+    - tensorflow
+    - gpu
+
+- name: Install NVIDIA drivers and CUDA toolkit
   ansible.builtin.apt:
-    name: python3-pip
+    name:
+      - nvidia-driver
+      - nvidia-cuda-toolkit
     state: present
+    update_cache: yes
+  become: true
+  when: gpu_available | bool
   tags:
+    - ai-ml
     - tensorflow
+    - gpu
 
-- name: Install TensorFlow using pip
+# Install TensorFlow
+- name: Install TensorFlow (CPU or GPU version based on availability)
   ansible.builtin.pip:
-    name: tensorflow
-    state: present
+    name: "{{ 'tensorflow==' + tensorflow_version | default('2.15.0') if gpu_available else 'tensorflow-cpu==' + tensorflow_version | default('2.15.0') }}"
     executable: pip3
+    state: present
+  become: false
   tags:
-    - tensorflow
-
-- name: Display TensorFlow installation confirmation
-  ansible.builtin.debug:
-    msg: "TensorFlow has been installed successfully."
-  tags:
+    - ai-ml
     - tensorflow

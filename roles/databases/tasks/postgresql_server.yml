@@ -1,0 +1,24 @@
+# roles/databases/tasks/postgresql_server.yml
+---
+- name: Install PostgreSQL server and its dependencies
+  ansible.builtin.apt:
+    name:
+      - postgresql
+      - postgresql-contrib
+    state: present
+    update_cache: yes
+  tags:
+    - postgresql-server
+
+- name: Ensure PostgreSQL service is running and enabled on boot
+  ansible.builtin.service:
+    name: postgresql
+    state: started
+    enabled: yes
+  tags:
+    - postgresql-server
+
+# You would add more configuration tasks here, such as:
+# - creating a new user or database
+# - setting up authentication (e.g., editing pg_hba.conf)
+# - configuring listen addresses

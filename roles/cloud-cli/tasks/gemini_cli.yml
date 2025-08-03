@@ -1,0 +1,44 @@
+# roles/cloud_clis/tasks/gemini_cli.yml
+---
+- name: Google Cloud CLI (Gemini CLI) Installation
+  ansible.builtin.debug:
+    msg: "Installing Google Cloud CLI..."
+  tags:
+    - gemini-cli
+
+- name: Ensure gnupg is installed
+  ansible.builtin.apt:
+    name: gnupg
+    state: present
+    update_cache: yes
+  tags:
+    - gemini-cli
+
+- name: Add Google Cloud's GPG key
+  ansible.builtin.apt_key:
+    url: https://packages.cloud.google.com/apt/doc/apt-key.gpg
+    state: present
+  tags:
+    - gemini-cli
+
+- name: Add Google Cloud SDK repository
+  ansible.builtin.apt_repository:
+    repo: deb [arch=amd64] https://packages.cloud.google.com/apt cloud-sdk main
+    state: present
+    filename: google-cloud-sdk
+  tags:
+    - gemini-cli
+
+- name: Install the Google Cloud CLI
+  ansible.builtin.apt:
+    name: google-cloud-cli
+    state: present
+    update_cache: yes
+  tags:
+    - gemini-cli
+
+- name: Display Google Cloud CLI installation confirmation
+  ansible.builtin.debug:
+    msg: "Google Cloud CLI has been installed. To complete setup, run 'gcloud init' in your terminal."
+  tags:
+    - gemini-cli

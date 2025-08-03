@@ -1,0 +1,45 @@
+# roles/devops_cloud_native/tasks/k9s.yml
+---
+- name: Get the latest K9s version
+  ansible.builtin.uri:
+    url: https://api.github.com/repos/derailed/k9s/releases/latest
+    return_content: yes
+  register: k9s_release
+  tags:
+    - k9s
+
+- name: Set fact for K9s download URL
+  ansible.builtin.set_fact:
+    k9s_download_url: "{{ k9s_release.json.assets | selectattr('name', 'match', '.*Linux_amd64.tar.gz') | map(attribute='browser_download_url') | first }}"
+  tags:
+    - k9s
+
+- name: Download K9s archive
+  ansible.builtin.get_url:
+    url: "{{ k9s_download_url }}"
+    dest: "/tmp/k9s.tar.gz"
+  tags:
+    - k9s
+
+- name: Unarchive K9s binary
+  ansible.builtin.unarchive:
+    src: /tmp/k9s.tar.gz
+    dest: /usr/local/bin
+    remote_src: yes
+    extra_opts:
+      - k9s
+  tags:
+    - k9s
+
+- name: Clean up temporary file
+  ansible.builtin.file:
+    path: /tmp/k9s.tar.gz
+    state: absent
+  tags:
+    - k9s
+
+- name: Display K9s installation confirmation
+  ansible.builtin.debug:
+    msg: "K9s has been installed. To use, run 'k9s' in your terminal with a valid Kubeconfig."
+  tags:
+    - k9s

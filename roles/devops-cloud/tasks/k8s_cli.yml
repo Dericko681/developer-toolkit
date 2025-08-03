@@ -1,0 +1,9 @@
+# roles/devops_cloud_native/tasks/k8s_cli.yml
+---
+- name: Download kubectl binary
+  ansible.builtin.get_url:
+    url: "https://dl.k8s.io/release/{{ k8s_version | default('v1.27.0') }}/bin/linux/amd64/kubectl"
+    dest: "/usr/local/bin/kubectl"
+    mode: '0755'
+  tags:
+    - k8s-cli

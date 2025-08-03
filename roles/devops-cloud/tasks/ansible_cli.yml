@@ -1,0 +1,9 @@
+# roles/devops_cloud_native/tasks/ansible_cli.yml
+---
+- name: Install Ansible Core via apt
+  ansible.builtin.apt:
+    name: ansible
+    state: present
+    update_cache: yes
+  tags:
+    - ansible-cli

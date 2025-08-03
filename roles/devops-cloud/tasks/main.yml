@@ -1,6 +1,75 @@
 # roles/devops_cloud_native/tasks/main.yml
 ---
-- name: Include Terraform tasks
+- name: DevOps & Cloud Native Tools Installation
+  ansible.builtin.debug:
+    msg: "Starting installation tasks for DevOps & Cloud Native tools based on user choices."
+
+- name: Include Terraform installation tasks
   ansible.builtin.include_tasks: terraform.yml
-  when: install_terraform | bool
-# ... and so on for k8s_cli, k9s, k3s_cli, ansible_cli, ollama, minio_client, argocd_cli, jenkins_cli, helm
+  when: install_terraform is defined and install_terraform | bool
+  tags:
+    - devops
+    - terraform
+
+- name: Include Kubernetes CLI (kubectl) installation tasks
+  ansible.builtin.include_tasks: k8s_cli.yml
+  when: install_k8s_cli is defined and install_k8s_cli | bool
+  tags:
+    - devops
+    - k8s-cli
+
+- name: Include K9s installation tasks
+  ansible.builtin.include_tasks: k9s.yml
+  when: install_k9s is defined and install_k9s | bool
+  tags:
+    - devops
+    - k9s
+
+- name: Include K3s client tools installation tasks
+  ansible.builtin.include_tasks: k3s_cli.yml
+  when: install_k3s_cli is defined and install_k3s_cli | bool
+  tags:
+    - devops
+    - k3s-cli
+
+- name: Include Ansible CLI installation tasks
+  ansible.builtin.include_tasks: ansible_cli.yml
+  when: install_ansible_cli is defined and install_ansible_cli | bool
+  tags:
+    - devops
+    - ansible-cli
+
+- name: Include Ollama installation tasks
+  ansible.builtin.include_tasks: ollama.yml
+  when: install_ollama is defined and install_ollama | bool
+  tags:
+    - devops
+    - ollama
+
+- name: Include MinIO Client (mc) installation tasks
+  ansible.builtin.include_tasks: minio_client.yml
+  when: install_minio_client is defined and install_minio_client | bool
+  tags:
+    - devops
+    - minio-client
+
+- name: Include Argo CD CLI installation tasks
+  ansible.builtin.include_tasks: argocd_cli.yml
+  when: install_argocd_cli is defined and install_argocd_cli | bool
+  tags:
+    - devops
+    - argocd-cli
+
+- name: Include Jenkins CLI installation tasks
+  ansible.builtin.include_tasks: jenkins_cli.yml
+  when: install_jenkins_cli is defined and install_jenkins_cli | bool
+  tags:
+    - devops
+    - jenkins-cli
+
+- name: Include Helm installation tasks
+  ansible.builtin.include_tasks: helm.yml
+  when: install_helm is defined and install_helm | bool
+  tags:
+    - devops
+    - helm

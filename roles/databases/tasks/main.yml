@@ -1,42 +1,22 @@
-# roles/ai-ml-datascience/tasks/main.yml
+# roles/databases/tasks/main.yml
 ---
-- name: SECTION: AI/ML/Data Science Tools Installation
+- name: Database Tools Installation
   ansible.builtin.debug:
-    msg: "Starting installation tasks for AI/ML/Data Science tools based on user choices."
+    msg: "Starting installation tasks for database tools based on user choices."
 
-- name: Include JupyterLab installation tasks
-  ansible.builtin.include_tasks: jupyterlab.yml
-  when: install_jupyterlab is defined and install_jupyterlab | bool
+- name: Include common database clients installation tasks
+  ansible.builtin.include_tasks: db_clients.yml
+  when: install_db_clients is defined and install_db_clients | bool
   tags:
-    - ai-ml
-    - jupyterlab
+    - databases
+    - db-clients
 
-- name: Include PyTorch installation tasks
-  ansible.builtin.include_tasks: pytorch.yml
-  when: install_pytorch is defined and install_pytorch | bool
-  tags:
-    - ai-ml
-    - pytorch
-
-- name: Include TensorFlow installation tasks
-  ansible.builtin.include_tasks: tensorflow.yml
-  when: install_tensorflow is defined and install_tensorflow | bool
-  tags:
-    - ai-ml
-    - tensorflow
-
-- name: Include Hugging Face CLI installation tasks
-  ansible.builtin.include_tasks: huggingface_cli.yml
-  when: install_huggingface_cli is defined and install_huggingface_cli | bool
-  tags:
-    - ai-ml
-    - huggingface-cli
-
-# You can add more include_tasks here for any other AI/ML/Data Science tools you might add later
-# e.g., pandas, numpy, scikit-learn, CUDA, etc.
-# - name: Include Scikit-learn installation tasks
-#   ansible.builtin.include_tasks: scikit_learn.yml
-#   when: install_scikit_learn | bool
+# You could expand this role later to include full database servers
+# for local development (e.g., PostgreSQL, MySQL server via apt/docker).
+# Example (if you had an install_postgresql_server variable and a postgresql_server.yml):
+# - name: Include PostgreSQL server installation tasks
+#   ansible.builtin.include_tasks: postgresql_server.yml
+#   when: install_postgresql_server is defined and install_postgresql_server | bool
 #   tags:
-#     - ai-ml
-#     - scikit-learn
+#     - databases
+#     - postgresql-server

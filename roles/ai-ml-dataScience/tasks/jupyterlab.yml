@@ -1,22 +1,25 @@
 ---
-# Install JupyterLab
-- name: Install JupyterLab via pip
-  ansible.builtin.pip:
-    name: jupyterlab=={{ jupyterlab_version | default('4.0.0') }}
-    executable: pip3
-    state: present
-  become: false
+# Install JupyterLab for interactive computing.
+# Installs a specific version or the latest available.
+
+- name: Determine desired JupyterLab version
+  ansible.builtin.set_fact:
+    _jupyterlab_version: "{{ jupyterlab_version | default('latest') }}"
   tags:
     - ai-ml
     - jupyterlab
 
-- name: Ensure JupyterLab is in PATH
-  ansible.builtin.lineinfile:
-    path: "{{ ansible_env.HOME }}/.zshrc"
-    line: 'export PATH="$HOME/.local/bin:$PATH"'
-    create: yes
-    mode: '0644'
-  become: false
+- name: Install JupyterLab via pip for {{ ansible_user }}
+  ansible.builtin.pip:
+    name: "jupyterlab{{ '' if _jupyterlab_version == 'latest' else '==' + _jupyterlab_version }}"
+    executable: pip3 # Ensures using python3-pip
+    state: present
+  become: true # Use sudo to ensure correct execution context
+  become_user: "{{ ansible_user }}" # IMPORTANT: Execute pip installation as the target user (e.g., ubuntu)
   tags:
     - ai-ml
     - jupyterlab
+
+# Note: The PATH for ~/.local/bin should ideally be handled by a system-wide profile
+# or within the user's shell configuration (e.g., .bashrc, .zshrc) after installation.
+# This ensures executables installed into ~/.local/bin (like 'jupyter') are found.

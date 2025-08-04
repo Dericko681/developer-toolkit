@@ -1,44 +1,77 @@
 ---
-# Install Node.js using NVM
-- name: Check if NVM is already installed
+# Install Node.js using Node Version Manager (NVM).
+
+- name: Check if NVM script exists for {{ ansible_user }}
   ansible.builtin.stat:
-    path: "{{ ansible_env.HOME }}/.nvm/nvm.sh"
+    # CRITICAL FIX: Explicitly use the user's home directory
+    path: "/home/{{ ansible_user }}/.nvm/nvm.sh"
   register: nvm_check
+  become: true # Use sudo for consistent execution context
+  become_user: "{{ ansible_user }}" # IMPORTANT: Check as the target user
   tags:
     - programming
     - nodejs
 
-- name: Download and install NVM
+- name: Download and install NVM if not present for {{ ansible_user }}
   ansible.builtin.shell:
     cmd: curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v{{ nvm_version | default('0.39.7') }}/install.sh | bash
-    creates: "{{ ansible_env.HOME }}/.nvm/nvm.sh"
-  become: false
+    # CRITICAL FIX: Explicitly use the user's home directory
+    creates: "/home/{{ ansible_user }}/.nvm/nvm.sh" # Idempotency check: creates this file
+  become: true # Use sudo for consistent execution context
+  become_user: "{{ ansible_user }}" # IMPORTANT: Execute as the target user (e.g., ubuntu)
   when: not nvm_check.stat.exists
   tags:
     - programming
     - nodejs
 
-- name: Add NVM to PATH in .zshrc
+- name: Add NVM sourcing to .zshrc if not present for {{ ansible_user }}
   ansible.builtin.lineinfile:
-    path: "{{ ansible_env.HOME }}/.zshrc"
-    line: "{{ item }}"
+    # CRITICAL FIX: Explicitly use the user's home directory for .zshrc path
+    path: "/home/{{ ansible_user }}/.zshrc"
+    line: "{{ item.line }}"
     create: yes
     mode: '0644'
+    regexp: "{{ item.regexp }}" # Ensures idempotency for each line
   loop:
-    - 'export NVM_DIR="$HOME/.nvm"'
-    - '[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"'
-    - '[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"'
-  become: false
-  when: not nvm_check.stat.exists
+    # CRITICAL FIX: Ensure $HOME is used literally in the line, and escape regexps correctly
+    - { line: 'export NVM_DIR="$HOME/.nvm"', regexp: '^export NVM_DIR="\\$HOME/\\.nvm"$' }
+    - { line: '[ -s "$NVM_DIR/nvm.sh" ] && \\. "$NVM_DIR/nvm.sh"', regexp: '\\[ -s "\\$NVM_DIR/nvm\\.sh" \\] && \\\\. "\\$NVM_DIR/nvm\\.sh"$' }
+    - { line: '[ -s "$NVM_DIR/bash_completion" ] && \\. "$NVM_DIR/bash_completion"', regexp: '\\[ -s "\\$NVM_DIR/bash_completion" \\] && \\\\. "\\$NVM_DIR/bash_completion"$' }
+  become: true # Use sudo for consistent execution context
+  become_user: "{{ ansible_user }}" # IMPORTANT: Execute as the target user to modify their .zshrc
   tags:
     - programming
     - nodejs
 
-- name: Install Node.js using NVM
+- name: Check if desired Node.js version is already installed via NVM for {{ ansible_user }}
+  ansible.builtin.shell: |
+    # CRITICAL FIX: Explicitly source the env file from the user's home directory
+    source "/home/{{ ansible_user }}/.nvm/nvm.sh"
+    nvm list --no-colors | grep "v{{ nodejs_version | default('18.18.0') }}"
+  args:
+    executable: /bin/bash # Use bash for source command
+  register: node_version_check
+  failed_when: false
+  changed_when: false
+  become: true # Use sudo for consistent execution context
+  become_user: "{{ ansible_user }}" # IMPORTANT: Check as the target user
+  tags:
+    - programming
+    - nodejs
+
+- name: Install Node.js using NVM and set as default for {{ ansible_user }}
   ansible.builtin.shell:
-    cmd: source {{ ansible_env.HOME }}/.nvm/nvm.sh && nvm install {{ nodejs_version | default('18.18.0') }} && nvm use {{ nodejs_version | default('18.18.0') }}
-    creates: "{{ ansible_env.HOME }}/.nvm/versions/node/v{{ nodejs_version | default('18.18.0') }}"
-  become: false
+    cmd: |
+      # CRITICAL FIX: Explicitly source the env file from the user's home directory
+      source "/home/{{ ansible_user }}/.nvm/nvm.sh"
+      nvm install {{ nodejs_version | default('18.18.0') }}
+      nvm use {{ nodejs_version | default('18.18.0') }}
+      nvm alias default {{ nodejs_version | default('18.18.0') }} # Set as default for new shells
+    # CRITICAL FIX: Explicitly use the user's home directory
+    creates: "/home/{{ ansible_user }}/.nvm/versions/node/v{{ nodejs_version | default('18.18.0') }}"
+  become: true # Use sudo for consistent execution context
+  become_user: "{{ ansible_user }}" # IMPORTANT: Execute as the target user
+  when: node_version_check.rc != 0
   tags:
     - programming
     - nodejs

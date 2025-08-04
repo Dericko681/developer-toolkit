@@ -1,45 +1,49 @@
 ---
-# Install Python
-- name: Check if Python is already installed
-  ansible.builtin.command: python3 --version
-  register: python_version_check
-  failed_when: false
-  changed_when: false
+# Install Python 3 and pip.
+
+- name: Determine Python 3 package name
+  ansible.builtin.set_fact:
+    # If python_version is 'latest' or not defined, just install 'python3' and 'python3-pip'
+    # which will get the default latest from the apt repository.
+    # Otherwise, attempt to install the specific version.
+    _python_package: "{{ 'python3' if python_version == 'latest' or python_version is not defined else 'python3=' + python_version }}"
   tags:
     - programming
     - python
 
-- name: Install Python and pip
+- name: Install Python 3 and pip via apt
   ansible.builtin.apt:
     name:
-      - python3={{ python_version | default('3.10') }}
+      - "{{ _python_package }}"
       - python3-pip
-      - python3-venv
+      - python3-venv # Good for creating isolated Python environments
     state: present
     update_cache: yes
-  become: true
-  when: python_version_check.rc != 0 or '3.10' not in python_version_check.stdout
+  become: true # Requires root for apt
   tags:
     - programming
     - python
 
-- name: Ensure pip is upgraded
+- name: Ensure pip is upgraded to its latest version for {{ ansible_user }}
   ansible.builtin.pip:
     name: pip
-    state: latest
-    executable: pip3
-  become: false
+    state: latest # Always get the latest version of pip itself
+    executable: pip3 # Use pip3 for Python 3 environments
+  become: true # Use sudo for consistent execution context
+  become_user: "{{ ansible_user }}" # IMPORTANT: Execute pip installation as the target user (e.g., ubuntu)
   tags:
     - programming
     - python
 
-- name: Add Python to PATH in .zshrc
+- name: Add local bin directory to PATH in .zshrc for {{ ansible_user }}
   ansible.builtin.lineinfile:
-    path: "{{ ansible_env.HOME }}/.zshrc"
+    path: "/home/{{ ansible_user }}/.zshrc" # CRITICAL FIX: Explicitly use the user's home directory
     line: 'export PATH="$HOME/.local/bin:$PATH"'
     create: yes
     mode: '0644'
-  become: false
+    regexp: '^export PATH="\$HOME/\.local/bin:\$PATH"$' # Ensures idempotency
+  become: true # Use sudo for consistent execution context
+  become_user: "{{ ansible_user }}" # IMPORTANT: Execute as the target user to modify their .zshrc
   tags:
     - programming
     - python

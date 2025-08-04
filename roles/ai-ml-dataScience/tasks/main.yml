@@ -1,85 +1,98 @@
 ---
-# Install AI/ML and Data Science tools based on user choices
-- name: AI/ML/Data Science Tools Installation
+# This file orchestrates the installation of AI/ML and Data Science tools
+# based on user selections from the prompt_user role.
+
+- name: Debug message for AI/ML/Data Science tools installation
   ansible.builtin.debug:
     msg: "Starting installation tasks for AI/ML/Data Science tools based on user choices."
   tags:
     - ai-ml
 
-# Ensure Python prerequisites are installed
-- name: Ensure Python and pip are installed
+# Ensure Python prerequisites are installed, crucial for most AI/ML/Data Science tools.
+- name: Ensure Python 3, pip, and venv are installed
   ansible.builtin.apt:
     name:
       - python3
       - python3-pip
-      - python3-venv
+      - python3-venv # Essential for isolated Python environments
     state: present
     update_cache: yes
-  become: yes
+  become: yes # Requires root for package installation
   tags:
     - ai-ml
     - dependencies
 
-# Check for NVIDIA GPU (optional for PyTorch/TensorFlow GPU support)
+# Check for NVIDIA GPU presence to enable conditional GPU-accelerated library installations.
 - name: Check for NVIDIA GPU
   ansible.builtin.command: lspci | grep -i nvidia
   register: nvidia_check
-  changed_when: false
-  failed_when: false
+  changed_when: false # This task only checks system state
+  failed_when: false # Don't fail if no NVIDIA GPU is found
   tags:
     - ai-ml
     - gpu
 
-- name: Set fact for GPU availability
+- name: Set fact 'gpu_available' based on NVIDIA GPU detection
   ansible.builtin.set_fact:
     gpu_available: "{{ nvidia_check.rc == 0 }}"
   tags:
     - ai-ml
     - gpu
 
-# Include tool-specific tasks based on user choices
+# --- Conditionally include GPU driver and CUDA setup if a GPU is available and a GPU-dependent tool is selected ---
+- name: Include GPU driver and CUDA setup tasks
+  ansible.builtin.include_tasks: gpu_setup.yml
+  when: gpu_available | bool and (install_pytorch | bool or install_tensorflow | bool)
+  tags:
+    - ai-ml
+    - gpu
+    - drivers
+
+# --- Include individual tool installation tasks ---
+# Each task is conditionally included based on the 'install_*' fact set by prompt_user.
+
 - name: Include JupyterLab installation tasks
   ansible.builtin.include_tasks: jupyterlab.yml
-  when: install_jupyterlab is defined and install_jupyterlab | bool
+  when: install_jupyterlab | bool
   tags:
     - ai-ml
     - jupyterlab
 
 - name: Include PyTorch installation tasks
   ansible.builtin.include_tasks: pytorch.yml
-  when: install_pytorch is defined and install_pytorch | bool
+  when: install_pytorch | bool
   tags:
     - ai-ml
     - pytorch
 
 - name: Include TensorFlow installation tasks
   ansible.builtin.include_tasks: tensorflow.yml
-  when: install_tensorflow is defined and install_tensorflow | bool
+  when: install_tensorflow | bool
   tags:
     - ai-ml
     - tensorflow
 
 - name: Include Hugging Face CLI installation tasks
   ansible.builtin.include_tasks: huggingface_cli.yml
-  when: install_huggingface_cli is defined and install_huggingface_cli | bool
+  when: install_huggingface_cli | bool
   tags:
     - ai-ml
     - huggingface-cli
 
-# Verify installations
+# --- Verify installations ---
 - name: Verify AI/ML tool installations
   ansible.builtin.command: "{{ item.cmd }}"
   loop:
-    - { name: 'jupyterlab', cmd: 'jupyter --version', when: 'install_jupyterlab | bool' }
-    - { name: 'pytorch', cmd: 'python3 -c "import torch; print(torch.__version__)"', when: 'install_pytorch | bool' }
-    - { name: 'tensorflow', cmd: 'python3 -c "import tensorflow; print(tensorflow.__version__)"', when: 'install_tensorflow | bool' }
-    - { name: 'huggingface_cli', cmd: 'huggingface-cli --version', when: 'install_huggingface_cli | bool' }
-  register: tool_versions
+    - { name: 'jupyterlab', cmd: 'jupyter --version', when: install_jupyterlab | bool }
+    - { name: 'pytorch', cmd: 'python3 -c "import torch; print(torch.__version__)"', when: install_pytorch | bool }
+    - { name: 'tensorflow', cmd: 'python3 -c "import tensorflow; print(tensorflow.__version__)"', when: install_tensorflow | bool }
+    - { name: 'huggingface_cli', cmd: 'huggingface-cli --version', when: install_huggingface_cli | bool }
+  register: ai_ml_tool_versions
   changed_when: false
-  failed_when: tool_versions.rc != 0
+  failed_when: ai_ml_tool_versions.rc != 0
   when: item.when
   loop_control:
-    label: "{{ item.name }}"
+    label: "Verifying {{ item.name }}"
   tags:
     - ai-ml
     - verification

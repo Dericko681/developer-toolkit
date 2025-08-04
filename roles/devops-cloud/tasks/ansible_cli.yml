@@ -1,33 +1,67 @@
 ---
-# Install Ansible CLI
-- name: Install Ansible dependencies
+# Install Ansible CLI into a Python virtual environment.
+# Supports specific versions or the latest available.
+
+- name: Ensure Python virtual environment dependencies are installed
   ansible.builtin.apt:
     name:
-      - python3
-      - python3-pip
+      - python3-venv # For creating virtual environments
+      - python3-pip  # For installing pip packages
     state: present
-  become: true
+    update_cache: yes
+  become: true # Requires root for apt
   tags:
     - devops
-    - ansible-cli
+    - ansible_cli
 
-- name: Install Ansible via pip
+- name: Define Ansible venv path for {{ ansible_user }}
+  ansible.builtin.set_fact:
+    # CRITICAL FIX: Explicitly use the user's home directory for the venv path
+    ansible_venv_path: "/home/{{ ansible_user }}/.ansible_venv"
+  tags:
+    - devops
+    - ansible_cli
+
+- name: Create Python virtual environment for Ansible for {{ ansible_user }}
+  ansible.builtin.command: "python3 -m venv {{ ansible_venv_path }}"
+  args:
+    creates: "{{ ansible_venv_path }}/bin/activate" # Idempotency check
+  become: true # Use sudo to ensure correct execution context
+  become_user: "{{ ansible_user }}" # IMPORTANT: Execute command as the target user (e.g., ubuntu)
+  tags:
+    - devops
+    - ansible_cli
+
+- name: Determine desired Ansible version for installation
+  ansible.builtin.set_fact:
+    _ansible_version: "{{ ansible_version | default('latest') }}"
+  tags:
+    - devops
+    - ansible_cli
+
+- name: Install or upgrade Ansible in the virtual environment for {{ ansible_user }}
   ansible.builtin.pip:
-    name: ansible=={{ ansible_version | default('8.0.0') }}
-    executable: pip3
-    state: present
-  become: false
+    name: "ansible{{ '' if _ansible_version == 'latest' else '==' + _ansible_version }}"
+    virtualenv: "{{ ansible_venv_path }}" # Install into the venv
+    state: present # Ensures it's installed or upgraded to the specified version
+    executable: "{{ ansible_venv_path }}/bin/pip" # Use pip from the venv
+  become: true # Use sudo to ensure correct execution context
+  become_user: "{{ ansible_user }}" # IMPORTANT: Execute pip installation as the target user
   tags:
     - devops
-    - ansible-cli
+    - ansible_cli
 
-- name: Ensure Ansible is in PATH
+- name: Add Ansible venv bin to PATH in .zshrc for {{ ansible_user }}
   ansible.builtin.lineinfile:
-    path: "{{ ansible_env.HOME }}/.zshrc"
-    line: 'export PATH="$HOME/.local/bin:$PATH"'
+    # CRITICAL FIX: Explicitly use the user's home directory for .zshrc path
+    path: "/home/{{ ansible_user }}/.zshrc"
+    line: 'export PATH="{{ ansible_venv_path }}/bin:$PATH"'
     create: yes
     mode: '0644'
-  become: false
+    # CRITICAL FIX: Ensure regexp correctly escapes the path for idempotency
+    regexp: '^export PATH="\{\{ ansible_venv_path \| regex_escape \}\}/bin:\$PATH"$'
+  become: true # Use sudo for consistent execution context
+  become_user: "{{ ansible_user }}" # IMPORTANT: Execute as the target user to modify their .zshrc
   tags:
     - devops
-    - ansible-cli
+    - ansible_cli

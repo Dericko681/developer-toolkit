@@ -1,7 +1,7 @@
 ---
-# Default versions for cloud provider CLIs.
+# Default versions for CLI tools.
 # These values are used if not overridden by group_vars/all.yml or other higher-precedence variables.
 # Set to 'latest' to always get the most recent stable version.
 
-aws_cli_version: "latest" # Example: "2.13.0"
-gcloud_version: "latest" # Example: "447.0.0-0"
+jq_version: "latest" # Example: "1.6"
+yq_version: "latest" # Example: "4.35.2"

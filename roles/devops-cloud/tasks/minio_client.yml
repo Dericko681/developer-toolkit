@@ -1,12 +1,53 @@
 ---
-# Install MinIO Client (mc)
-- name: Download MinIO Client
-  ansible.builtin.get_url:
-    url: https://dl.min.io/client/mc/release/linux-amd64/mc
-    dest: /usr/local/bin/mc
-    mode: '0755'
-    checksum: sha256:{{ lookup('url', 'https://dl.min.io/client/mc/release/linux-amd64/mc.sha256sum') | regex_search('([a-f0-9]+)', '\\1') | first }}
-  become: true
+# Install MinIO Client (mc) for object storage interaction.
+# Fetches the latest stable release.
+
+- name: Determine desired MinIO Client version
+  ansible.builtin.set_fact:
+    _minio_client_version: "{{ minio_client_version | default('latest') }}"
   tags:
     - devops
-    - minio-client
+    - minio_client
+
+- name: Get latest MinIO Client release tag if 'latest' is requested
+  ansible.builtin.uri:
+    url: "https://dl.min.io/client/mc/release/linux-amd64/mc.shasum" # This file contains the latest release tag
+    return_content: true
+    method: GET
+  register: mc_latest_release_info
+  when: _minio_client_version == 'latest'
+  tags:
+    - devops
+    - minio_client
+
+- name: Set _minio_client_version to actual latest release tag
+  ansible.builtin.set_fact:
+    _minio_client_version: "{{ mc_latest_release_info.content | split(' ')[1] | trim }}" # Extract the release tag
+  when: _minio_client_version == 'latest'
+  tags:
+    - devops
+    - minio_client
+
+- name: Check if MinIO Client is already installed
+  ansible.builtin.command: "mc --version"
+  register: mc_installed_check
+  failed_when: false
+  changed_when: false
+  tags:
+    - devops
+    - minio_client
+
+- name: Download MinIO Client binary
+  ansible.builtin.get_url:
+    url: "https://dl.min.io/client/mc/release/linux-amd64/mc" # URL always points to latest
+    dest: /usr/local/bin/mc
+    mode: '0755'
+    # Dynamically fetch checksum for the latest version
+    checksum: "sha256:{{ lookup('url', 'https://dl.min.io/client/mc/release/linux-amd64/mc.sha256sum') | regex_search('([a-f0-9]+)', '\\1') | first }}"
+  become: true # Install to system-wide bin directory
+  # Only download if not installed or if the current binary's version doesn't match the desired version.
+  # Note: `mc --version` output doesn't always contain the exact release tag, so a simple existence check is often sufficient.
+  when: mc_installed_check.rc != 0
+  tags:
+    - devops
+    - minio_client

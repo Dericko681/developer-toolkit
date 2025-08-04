@@ -1,22 +1,41 @@
 ---
-# Install OpenJDK
-- name: Install OpenJDK
-  ansible.builtin.apt:
-    name: "openjdk-{{ java_version | default('17') }}-jdk"
-    state: present
-    update_cache: yes
-  become: true
+# Install OpenJDK (Java Development Kit) using apt.
+
+- name: Set Java package name based on version preference
+  ansible.builtin.set_fact:
+    java_package_name: "{{ 'default-jdk' if java_version == 'latest' or java_version is not defined else 'openjdk-' + java_version + '-jdk' }}"
   tags:
     - programming
     - java
 
-- name: Set JAVA_HOME environment variable
+- name: Install OpenJDK
+  ansible.builtin.apt:
+    name: "{{ java_package_name }}"
+    state: present
+    update_cache: yes
+  become: true # Requires root for apt.
+  tags:
+    - programming
+    - java
+
+- name: Determine JAVA_HOME path
+  ansible.builtin.command: dirname $(dirname $(readlink -f $(which java)))
+  register: java_home_path_result
+  changed_when: false
+  failed_when: false # Allow this to fail if java not in path yet, will try to set later
+  tags:
+    - programming
+    - java
+
+- name: Set JAVA_HOME environment variable in .zshrc
   ansible.builtin.lineinfile:
     path: "{{ ansible_env.HOME }}/.zshrc"
-    line: "export JAVA_HOME=/usr/lib/jvm/java-{{ java_version | default('17') }}-openjdk-amd64"
+    # Use determined path or fallback to a common one if determination failed
+    line: "export JAVA_HOME={{ java_home_path_result.stdout if java_home_path_result.rc == 0 else '/usr/lib/jvm/default-java' }}"
     create: yes
     mode: '0644'
-  become: false
+    regexp: '^export JAVA_HOME=' # Ensure it's updated if present, or added
+  become: false # User-specific file.
   tags:
     - programming
     - java

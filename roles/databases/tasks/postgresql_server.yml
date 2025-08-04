@@ -1,11 +1,53 @@
 ---
-# Install PostgreSQL client (redundant with db_clients.yml for modularity)
-- name: Install PostgreSQL client
+# Install PostgreSQL database server.
+
+- name: Add PostgreSQL APT repository
+  ansible.builtin.apt_repository:
+    repo: "deb http://apt.postgresql.org/pub/repos/apt {{ ansible_distribution_release }}-pgdg main"
+    state: present
+    filename: pgdg
+    # Note: Using a fixed filename like 'pgdg' is generally better than 'postgresql'
+    # to avoid potential conflicts if other repos also try to use 'postgresql'.
+  become: true
+  tags:
+    - databases
+    - postgresql-server
+
+- name: Add PostgreSQL GPG key
+  ansible.builtin.apt_key:
+    url: https://www.postgresql.org/media/keys/ACCC4CF8.asc
+    state: present
+  become: true
+  tags:
+    - databases
+    - postgresql-server
+
+- name: Install PostgreSQL server package
   ansible.builtin.apt:
-    name: postgresql-client-{{ postgresql_version | default('14') }}
+    name: "postgresql-{{ postgresql_version | default('14') }}" # Uses version from defaults
     state: present
     update_cache: yes
   become: true
   tags:
     - databases
-    - postgresql
+    - postgresql-server
+
+- name: Ensure PostgreSQL service is running and enabled
+  ansible.builtin.service:
+    name: postgresql
+    state: started
+    enabled: yes
+  become: true
+  tags:
+    - databases
+    - postgresql-server
+
+# Important Note:
+# For a production-ready PostgreSQL setup, you would typically need to perform
+# additional configuration steps after installation, such as:
+# - Creating a new PostgreSQL user with a strong password.
+# - Creating specific databases.
+# - Configuring `pg_hba.conf` for network access control.
+# - Adjusting `postgresql.conf` for performance tuning.
+# - Setting up backups, replication, etc.
+# These steps are beyond basic installation and depend on your specific use case.

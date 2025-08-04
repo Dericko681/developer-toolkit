@@ -1,0 +1,139 @@
+---
+- name: Developer Workstation Setup
+  hosts: all # Targets all hosts defined in your Ansible inventory (e.g., inventory/hosts.ini)
+  become: yes # Elevate privileges to root for most tasks (installing packages, modifying system files)
+
+  # This playbook orchestrates the setup and configuration of a personal Linux workstation.
+  # It leverages individual roles for modularity and can be customized based on user choices.
+
+  # --- Pre-tasks: Essential setup and user preference gathering ---
+  pre_tasks:
+    - name: Ensure apt cache is updated at the start
+      ansible.builtin.apt:
+        update_cache: yes
+      changed_when: false # This task only refreshes the cache
+      tags: always # Ensure this runs every time
+
+    - name: Gather comprehensive system facts
+      ansible.builtin.setup:
+        gather_subset:
+          - distribution # For OS distribution and version
+          - architecture # For CPU architecture (e.g., x86_64, aarch64)
+          - env # For user's home directory and other environment variables
+          - network # For basic network info if needed by other roles
+      changed_when: false # This task only gathers information
+      tags: always # Ensure this runs every time
+
+    # This role is assumed to interactively prompt the user
+    # and set 'install_*' boolean variables as facts.
+    # If not using a prompt, define these variables in group_vars/all.yml
+    # or pass them via --extra-vars.
+    - name: Run prompt_user role to gather installation preferences
+      ansible.builtin.include_role:
+        name: prompt_user # Correctly calls the role located in ../roles/prompt_user
+      tags:
+        - prompt
+        - always
+
+    # REMOVED: The 'Fail if required installation variables are not set by prompt_user' task
+    # This task is no longer necessary as the 'prompt_user' role (with modifications)
+    # now ensures all 'install_*' variables are explicitly defined (true or false).
+
+  # --- Roles: Modular tasks for each toolkit component ---
+  roles:
+    # Removed 'common' role as it's not in the 'roles/' directory.
+    # If playbooks/common.yml contains tasks that are always needed,
+    # consider moving them into base_system or pre_tasks.
+
+    # 1. Base system setup (e.g., Zsh, common utilities, .zshrc template)
+    #    This role is fundamental and should typically always run.
+    - role: base_system
+      tags: base-system
+
+    # 2. Version Control (Git - often a dependency for other tools)
+    - role: version_control
+      when: install_version_control | bool
+      tags: version-control
+
+    # 3. Core CLI Utilities (jq, yq)
+    - role: cli_tools
+      when: install_cli_tools | bool
+      tags: cli-tools
+
+    # 4. Containerization (Docker)
+    - role: containerization
+      when: install_containerization | bool
+      tags: containerization
+
+    # 5. Programming Languages
+    - role: programming_languages
+      when: install_rust | bool or
+            install_java | bool or
+            install_go | bool or
+            install_nodejs | bool or
+            install_python | bool
+      tags: programming
+
+    # 6. DevOps Tools (now using your 'devops-cloud' role)
+    - role: devops-cloud # Correctly referencing your existing role
+      when: install_terraform | bool or
+            install_k8s_cli | bool or
+            install_k9s | bool or
+            install_k3s_cli | bool or
+            install_ansible_cli | bool or
+            install_ollama | bool or
+            install_minio_client | bool or
+            install_argocd_cli | bool or
+            install_jenkins_cli | bool or
+            install_helm | bool
+      tags: devops
+
+    # 7. Cloud CLIs (still a separate role as per your tree)
+    - role: cloud-cli
+      when: install_aws_cli | bool or
+            install_gemini_cli | bool
+      tags: cloud-cli
+
+    # 8. Databases
+    - role: databases
+      when: install_db_clients | bool or
+            install_postgresql_server | bool
+      tags: databases
+
+    # 9. IDEs and Editors
+    - role: ide_editors
+      when: install_ide_editors | bool
+      tags: ide-editors
+
+    # 10. AI/ML/Data Science tools
+    - role: ai-ml-dataScience
+      when: install_huggingface_cli | bool or
+            install_jupyterlab | bool or
+            install_pytorch | bool or
+            install_tensorflow | bool
+      tags: ai-ml
+
+  # --- Post-tasks: Final user instructions and cleanup ---
+  post_tasks:
+    - name: Inform user about necessary re-login for shell and group changes
+      ansible.builtin.debug:
+        msg: |
+          ========================================================================
+          Workstation setup playbook finished!
+          For all installed tools, PATH changes, new group memberships (e.g., 'docker'),
+          and shell configurations (`~/.zshrc`) to take full effect, please:
+
+          1. **Log out and log back in** to your user session.
+          OR
+          2. Open a **new terminal session**.
+          OR (less reliable for group changes)
+          3. Manually run: `source ~/.zshrc`
+             If Docker was installed, also run: `newgrp docker`
+          ========================================================================
+      tags: always # Always display this important message
+
+# Notes:
+# - Each role is designed to be idempotent and handle errors gracefully.
+# - Ensure all 'install_*' variables are defined (by 'prompt_user' or elsewhere).
+# - Use tags for selective execution: ansible-playbook playbooks/playbook.yml --tags "devops,programming"
+# - For production environments, consider validating roles with tools like Molecule or Ansible Lint.

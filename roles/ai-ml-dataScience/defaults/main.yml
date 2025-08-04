@@ -1,0 +1,11 @@
+---
+# Default versions for AI/ML/Data Science tools.
+# These values are used if not overridden by group_vars/all.yml or other higher-precedence variables.
+# The individual installation tasks will handle 'latest' logic if the corresponding
+# version variable is explicitly set to 'latest' (e.g., in group_vars/all.yml).
+
+# General Python package versions
+jupyterlab_version: "4.1.2"
+pytorch_version: "2.2.1"
+tensorflow_version: "2.15.0"
+huggingface_cli_version: "0.20.0" # This often follows the 'transformers' library versioning

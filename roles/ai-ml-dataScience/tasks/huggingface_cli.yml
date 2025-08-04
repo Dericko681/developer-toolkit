@@ -1,22 +1,24 @@
 ---
 # Install Hugging Face CLI
-- name: Install Hugging Face CLI via pip
+- name: Install Hugging Face CLI via pip for {{ ansible_user }}
   ansible.builtin.pip:
     name: huggingface_hub[cli]
     executable: pip3
     state: present
-  become: false
+  become: true # Use sudo to ensure correct execution context
+  become_user: "{{ ansible_user }}" # IMPORTANT: Execute pip installation as the target user
   tags:
     - ai-ml
     - huggingface-cli
 
-- name: Ensure Hugging Face CLI is in PATH
+- name: Ensure Hugging Face CLI is in PATH for {{ ansible_user }}
   ansible.builtin.lineinfile:
-    path: "{{ ansible_env.HOME }}/.zshrc"
+    path: "/home/{{ ansible_user }}/.zshrc" # CRITICAL FIX: Explicitly use the user's home directory
     line: 'export PATH="$HOME/.local/bin:$PATH"'
     create: yes
     mode: '0644'
-  become: false
+  become: true # Use sudo for consistent execution context
+  become_user: "{{ ansible_user }}" # IMPORTANT: Execute as the target user to modify their .zshrc
   tags:
     - ai-ml
     - huggingface-cli

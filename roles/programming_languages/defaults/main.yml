@@ -1,6 +1,12 @@
 ---
-rust_version: "{{ rust_version | default('1.74.0') }}"
-java_version: "{{ java_version | default('17') }}"
-go_version: "{{ go_version | default('1.21.5') }}"
-nodejs_version: "{{ nodejs_version | default('18.18.0') }}"
-nvm_version: "{{ nvm_version | default('0.39.7') }}"
+# Default versions for programming languages.
+# These values are used if not overridden by group_vars/all.yml or other higher-precedence variables.
+# The actual installation tasks (e.g., in rust.yml) will handle 'latest' logic
+# if the corresponding version variable is set to 'latest' in group_vars/all.yml
+# or if no specific version is desired.
+
+rust_version: "1.74.0"
+java_version: "17"
+go_version: "1.21.5"
+nodejs_version: "18.18.0"
+nvm_version: "0.39.7"

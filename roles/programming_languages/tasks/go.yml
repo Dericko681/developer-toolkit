@@ -1,60 +1,117 @@
 ---
-# Install Go
-- name: Check if Go is already installed
-  ansible.builtin.command: go version
-  register: go_version_check
+# Install Go from official tarball.
+
+- name: Determine desired Go version
+  ansible.builtin.set_fact:
+    # Use specific version, or try to get latest if 'latest' is requested or version is undefined.
+    # Note: A more robust 'latest' check would involve fetching from a Go API or webpage,
+    # but for simplicity and common use cases, we assume specific versions are used,
+    # or 'latest' means 'latest stable' if we implement a lookup for it.
+    # For now, if 'go_version' is 'latest' or undefined, we'll default to the one in defaults.
+    # To truly get the _absolute latest_, you'd need a separate task to query golang.org.
+    # Keeping the default behavior from your defaults/main.yml
+    _go_version: "{{ go_version | default('1.21.5') }}" # Fallback to default if not defined or 'latest'
+  tags:
+    - programming
+    - go
+
+- name: Get latest Go version if `go_version` is 'latest'
+  ansible.builtin.uri:
+    url: "https://go.dev/dl/?mode=json"
+    return_content: true
+    method: GET
+  register: go_releases
+  when: go_version == 'latest' or go_version is not defined # Only run if 'latest' is requested or no version given
+  tags:
+    - programming
+    - go
+
+- name: Set _go_version to the actual latest stable version
+  ansible.builtin.set_fact:
+    _go_version: "{{ (go_releases.json | selectattr('stable', 'true') | first).version | regex_replace('go','') }}"
+  when: go_version == 'latest' or go_version is not defined # Only set if 'latest' was requested or no version given
+  tags:
+    - programming
+    - go
+
+- name: Check if desired Go version is already installed
+  ansible.builtin.command: "/usr/local/go/bin/go version"
+  register: go_installed_check
   failed_when: false
   changed_when: false
   tags:
     - programming
     - go
 
-- name: Download Go tarball
+- name: Create /usr/local directory if it does not exist
+  ansible.builtin.file:
+    path: /usr/local
+    state: directory
+    mode: '0755'
+  become: true
+  when: go_installed_check.rc != 0 or _go_version not in go_installed_check.stdout
+  tags:
+    - programming
+    - go
+
+- name: Download Go tarball for version {{ _go_version }}
   ansible.builtin.get_url:
-    url: "https://golang.org/dl/go{{ go_version | default('1.21.5') }}.linux-{{ ansible_architecture | regex_replace('x86_64', 'amd64') }}.tar.gz"
-    dest: "/tmp/go{{ go_version | default('1.21.5') }}.tar.gz"
+    url: "https://golang.org/dl/go{{ _go_version }}.linux-{{ ansible_architecture | regex_replace('x86_64', 'amd64') }}.tar.gz"
+    dest: "/tmp/go{{ _go_version }}.tar.gz"
     mode: '0644'
-  become: true
-  when: go_version_check.rc != 0
+  become: true # Download to a system temporary directory
+  when: go_installed_check.rc != 0 or _go_version not in go_installed_check.stdout
   tags:
     - programming
     - go
 
-- name: Extract Go tarball
+- name: Extract Go tarball to /usr/local
   ansible.builtin.unarchive:
-    src: "/tmp/go{{ go_version | default('1.21.5') }}.tar.gz"
+    src: "/tmp/go{{ _go_version }}.tar.gz"
     dest: /usr/local
-    remote_src: yes
-    creates: /usr/local/go
-  become: true
-  when: go_version_check.rc != 0
+    remote_src: yes # Source is on the remote machine's /tmp
+    creates: /usr/local/go/bin/go # Idempotency check: creates this binary
+  become: true # Requires root to extract to /usr/local
+  when: go_installed_check.rc != 0 or _go_version not in go_installed_check.stdout
   tags:
     - programming
     - go
 
-- name: Set Go environment variables
+- name: Clean up Go tarball
+  ansible.builtin.file:
+    path: "/tmp/go{{ _go_version }}.tar.gz"
+    state: absent
+  become: true
+  when: go_installed_check.rc != 0 or _go_version not in go_installed_check.stdout
+  tags:
+    - programming
+    - go
+
+- name: Set Go environment variables in .zshrc for {{ ansible_user }}
   ansible.builtin.lineinfile:
-    path: "{{ ansible_env.HOME }}/.zshrc"
+    path: "/home/{{ ansible_user }}/.zshrc" # CRITICAL FIX: Explicitly use the user's home directory
     line: "{{ item }}"
     create: yes
     mode: '0644'
+    # CRITICAL FIX: Ensure regexp correctly escapes special characters like $ and /
+    regexp: '^{{ item | regex_escape }}$'
   loop:
     - 'export GOROOT=/usr/local/go'
     - 'export GOPATH=$HOME/go'
     - 'export PATH=$GOPATH/bin:$GOROOT/bin:$PATH'
-  become: false
-  when: go_version_check.rc != 0
+  become: true # Use sudo for consistent execution context
+  become_user: "{{ ansible_user }}" # IMPORTANT: Execute as the target user to modify their .zshrc
   tags:
     - programming
     - go
 
-- name: Create Go workspace directory
+- name: Create Go workspace directory if it doesn't exist for {{ ansible_user }}
   ansible.builtin.file:
-    path: "{{ ansible_env.HOME }}/go"
+    path: "/home/{{ ansible_user }}/go" # CRITICAL FIX: Explicitly use the user's home directory
     state: directory
     mode: '0755'
-  become: false
-  when: go_version_check.rc != 0
+  become: true # Use sudo for consistent execution context
+  become_user: "{{ ansible_user }}" # IMPORTANT: Ensure directory is created by the target user
   tags:
     - programming
     - go

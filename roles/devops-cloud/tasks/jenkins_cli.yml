@@ -1,22 +1,69 @@
 ---
-# Install Jenkins CLI (requires Java from programming_languages)
-- name: Ensure Java is installed
-  ansible.builtin.apt:
-    name: "openjdk-{{ java_version | default('17') }}-jdk"
-    state: present
-  become: true
-  tags:
-    - devops
-    - jenkins-cli
+# Install Jenkins CLI (JAR file).
+# This task assumes a Jenkins server is running and accessible to download the JAR.
 
-- name: Download Jenkins CLI
-  ansible.builtin.get_url:
-    url: http://localhost:8080/jnlpJars/jenkins-cli.jar
-    dest: "{{ ansible_env.HOME }}/.jenkins/jenkins-cli.jar"
-    mode: '0644'
-    validate_certs: no  # Localhost may not have valid cert
-  become: false
+- name: Ensure Java is installed for Jenkins CLI
+  ansible.builtin.apt:
+    name: "openjdk-{{ java_version | default('17') }}-jdk" # Use java_version from group_vars/defaults
+    state: present
+    update_cache: yes
+  become: true # Requires root for apt
   tags:
     - devops
-    - jenkins-cli
-  ignore_errors: true  # Jenkins server may not be running locally
+    - jenkins_cli
+
+- name: Define Jenkins CLI JAR path for {{ ansible_user }}
+  ansible.builtin.set_fact:
+    # CRITICAL FIX: Explicitly use the user's home directory for the Jenkins CLI path
+    jenkins_cli_jar_path: "/home/{{ ansible_user }}/.jenkins/jenkins-cli.jar"
+  tags:
+    - devops
+    - jenkins_cli
+
+- name: Create .jenkins directory if it does not exist for {{ ansible_user }}
+  ansible.builtin.file:
+    path: "/home/{{ ansible_user }}/.jenkins" # CRITICAL FIX: Explicitly use the user's home directory
+    state: directory
+    mode: '0755'
+  become: true # Use sudo for consistent execution context
+  become_user: "{{ ansible_user }}" # IMPORTANT: Ensure directory is created by the target user
+  tags:
+    - devops
+    - jenkins_cli
+
+- name: Check if Jenkins CLI JAR is already present for {{ ansible_user }}
+  ansible.builtin.stat:
+    path: "{{ jenkins_cli_jar_path }}"
+  # IMPORTANT: Run as the target user to correctly check existence and permissions
+  become: true
+  become_user: "{{ ansible_user }}"
+  tags:
+    - devops
+    - jenkins_cli
+
+- name: Download Jenkins CLI JAR from localhost Jenkins server for {{ ansible_user }}
+  ansible.builtin.get_url:
+    url: "http://localhost:8080/jnlpJars/jenkins-cli.jar"
+    dest: "{{ jenkins_cli_jar_path }}"
+    mode: '0644'
+    validate_certs: no # Use with caution: skips SSL certificate validation
+  become: true # Use sudo for consistent execution context
+  become_user: "{{ ansible_user }}" # IMPORTANT: Ensure download is done by the target user
+  when: not jenkins_cli_jar_check.stat.exists
+  tags:
+    - devops
+    - jenkins_cli
+
+- name: Add Jenkins CLI alias to .zshrc for {{ ansible_user }}
+  ansible.builtin.lineinfile:
+    path: "/home/{{ ansible_user }}/.zshrc" # CRITICAL FIX: Explicitly use the user's home directory
+    line: 'alias jenkins="java -jar {{ jenkins_cli_jar_path }}"'
+    create: yes
+    mode: '0644'
+    # CRITICAL FIX: Ensure regexp correctly escapes the path for idempotency
+    regexp: '^alias jenkins="java -jar {{ jenkins_cli_jar_path | regex_escape }}"$'
+  become: true # Use sudo for consistent execution context
+  become_user: "{{ ansible_user }}" # IMPORTANT: Execute as the target user to modify their .zshrc
+  tags:
+    - devops
+    - jenkins_cli

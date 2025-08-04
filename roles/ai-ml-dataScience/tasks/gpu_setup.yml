@@ -1,0 +1,32 @@
+---
+# Install NVIDIA drivers and CUDA toolkit for GPU acceleration.
+# This file is included conditionally if a GPU is detected and a GPU-dependent AI/ML tool is selected.
+
+- name: Add NVIDIA driver repository (if required by distribution)
+  ansible.builtin.apt_repository:
+    repo: "deb http://deb.debian.org/debian {{ ansible_distribution_release }} main contrib non-free"
+    state: present
+  become: true
+  tags:
+    - ai-ml
+    - gpu
+    - drivers
+  # This specific repo might not always be sufficient for latest CUDA drivers.
+  # For more robust NVIDIA/CUDA setup on Debian/Ubuntu, consider official NVIDIA repos or runfile installations.
+  # This task is kept as per your original logic.
+
+- name: Install NVIDIA drivers and CUDA toolkit
+  ansible.builtin.apt:
+    name:
+      - nvidia-driver
+      - nvidia-cuda-toolkit
+    state: present
+    update_cache: yes
+  become: true
+  tags:
+    - ai-ml
+    - gpu
+    - drivers
+
+# Note: After driver installation, a reboot might be required for changes to take full effect.
+# For production systems, you might want to add a handler to reboot here if drivers were installed/updated.

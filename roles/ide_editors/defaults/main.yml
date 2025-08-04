@@ -1,5 +1,5 @@
 ---
-# Default versions for database related components.
+# Default versions for IDEs and editors.
 # These values are used if not overridden by group_vars/all.yml or other higher-precedence variables.
 
-postgresql_version: "14"
+vscode_version: "latest" # Example: "1.92.0"

@@ -1,26 +1,40 @@
 ---
-# Install Version Control tools (Git)
-- name: Version Control Tools Installation
+# This file handles the installation of version control tools, primarily Git.
+
+- name: Debug message for Version Control Tools installation
   ansible.builtin.debug:
     msg: "Starting installation tasks for Version Control tools (Git)."
   tags:
     - version-control
 
-- name: Install Git
-  ansible.builtin.apt:
-    name: git={{ git_version | default('2.34.1') }}
-    state: present
-    update_cache: yes
-  become: yes
+# --- Install Git ---
+- name: Determine desired Git version
+  ansible.builtin.set_fact:
+    _git_version: "{{ git_version | default('latest') }}" # Default to 'latest'
   tags:
     - version-control
     - git
 
+- name: Install Git package
+  ansible.builtin.apt:
+    # Use 'state: latest' if 'latest' is desired, otherwise pin the version.
+    # Note: Using state: present with a specific version string like 'git=2.34.1'
+    # will ensure that exact version is installed/present.
+    # If _git_version is 'latest', apt will get the latest available in the configured repositories.
+    name: "git{{ '' if _git_version == 'latest' else '=' + _git_version }}"
+    state: present # Ensures the package is installed or upgraded to the specified state/version
+    update_cache: yes
+  become: yes # Requires root for apt
+  tags:
+    - version-control
+    - git
+
+# --- Verify Git installation ---
 - name: Verify Git installation
   ansible.builtin.command: git --version
-  register: git_version
-  changed_when: false
-  failed_when: git_version.rc != 0
+  register: git_version_check
+  changed_when: false # This task only checks, it doesn't change anything
+  failed_when: git_version_check.rc != 0 # Fail if git command itself fails
   tags:
     - version-control
     - verification

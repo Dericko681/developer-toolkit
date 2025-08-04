@@ -1,37 +1,28 @@
 ---
-# Install NVIDIA drivers and CUDA (if GPU available)
-- name: Add NVIDIA driver repository
-  ansible.builtin.apt_repository:
-    repo: "deb http://deb.debian.org/debian {{ ansible_distribution_release }} main contrib non-free"
-    state: present
-  become: true
-  when: gpu_available | bool
+# Install PyTorch (deep learning framework).
+# Installs CPU or GPU version based on 'gpu_available' fact,
+# and supports specific versions or the latest available.
+
+- name: Determine desired PyTorch version
+  ansible.builtin.set_fact:
+    _pytorch_version: "{{ pytorch_version | default('latest') }}"
   tags:
     - ai-ml
     - pytorch
-    - gpu
 
-- name: Install NVIDIA drivers and CUDA toolkit
-  ansible.builtin.apt:
-    name:
-      - nvidia-driver
-      - nvidia-cuda-toolkit
-    state: present
-    update_cache: yes
-  become: true
-  when: gpu_available | bool
-  tags:
-    - ai-ml
-    - pytorch
-    - gpu
-
-# Install PyTorch
-- name: Install PyTorch (CPU or GPU version based on availability)
+- name: Install PyTorch (CPU or GPU version) for {{ ansible_user }}
   ansible.builtin.pip:
-    name: "{{ 'torch==' + pytorch_version | default('2.3.0') + '+cu121' if gpu_available else 'torch==' + pytorch_version | default('2.3.0') }}"
+    # If _pytorch_version is 'latest', state: latest handles it.
+    # Otherwise, pin to the specific version.
+    name: >
+      {{ 'torch' if _pytorch_version == 'latest' else 'torch==' + _pytorch_version }}
+      {% if gpu_available | bool %}
+        +cu121 # Or the appropriate CUDA version for your driver (e.g., +cu118, +cu121 etc.)
+      {% endif %}
     executable: pip3
-    state: present
-  become: false
+    state: present # Installs or upgrades to desired state/version
+  become: true # Use sudo to ensure correct execution context
+  become_user: "{{ ansible_user }}" # IMPORTANT: Execute pip installation as the target user (e.g., ubuntu)
   tags:
     - ai-ml
     - pytorch

@@ -1,6 +1,7 @@
 ---
-# Configure base system environment
-- name: Install base system packages
+# Configure base system environment and core tools.
+
+- name: Install essential base system packages
   ansible.builtin.apt:
     name:
       - zsh
@@ -10,66 +11,75 @@
       - unzip
     state: present
     update_cache: yes
-  become: yes
+  become: yes # This task needs root privileges for system-wide package installation
   tags:
     - base-system
 
-- name: Install Oh My Zsh
+- name: Install Oh My Zsh if not already installed for {{ ansible_user }}
   ansible.builtin.shell:
-    cmd: sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" --unattended
-    creates: "{{ ansible_env.HOME }}/.oh-my-zsh"
-  become: no
+    # Explicitly use the ansible_user's home directory in the 'creates' path
+    cmd: sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
+    creates: "/home/{{ ansible_user }}/.oh-my-zsh"
+  become: true # Use sudo to run the curl|sh command
+  become_user: "{{ ansible_user }}" # IMPORTANT: Execute the command *as* the target user (e.g., ubuntu)
+                                  # This ensures Oh My Zsh is installed in `/home/ubuntu/.oh-my-zsh`
+                                  # and owned by `ubuntu`.
   tags:
     - base-system
     - zsh
 
-- name: Set Zsh as default shell
+- name: Set Zsh as default shell for the current user ({{ ansible_user }})
   ansible.builtin.user:
-    name: "{{ ansible_user_id }}"
+    name: "{{ ansible_user }}" # Use ansible_user from inventory for consistency and reliability
     shell: /bin/zsh
-  become: yes
+  become: yes # Requires root privileges to change a user's default shell
   tags:
     - base-system
     - zsh
 
-- name: Prompt for Oh My Zsh plugins
-  ansible.builtin.pause:
-    prompt: "Install Oh My Zsh plugins (syntax highlighting, autocompletion) (y/n)?"
-    seconds: 300
-  register: zsh_plugins_choice
-  until: zsh_plugins_choice.user_input | lower in ['y', 'n']
-  retries: 3
-  become: no
-  tags:
-    - base-system
-    - zsh
-- name: Set fact for Zsh plugins
-  ansible.builtin.set_fact:
-    install_zsh_plugins: "{{ 'true' if zsh_plugins_choice.user_input | lower == 'y' else 'false' }}"
+# --- Oh My Zsh Plugins ---
+# These tasks are conditional based on the 'install_zsh_plugins' variable
+# set by the 'prompt_user' role in the main playbook's pre_tasks.
+
+- name: Ensure Oh My Zsh custom plugins directory exists for {{ ansible_user }}
+  ansible.builtin.file:
+    path: "/home/{{ ansible_user }}/.oh-my-zsh/custom/plugins"
+    state: directory
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: '0755'
+  become: true # Needs sudo to ensure correct ownership if intermediate directories were root-owned
+  become_user: "{{ ansible_user }}" # Ensure the directory is created and owned by the target user
+  when: install_zsh_plugins | bool
   tags:
     - base-system
     - zsh
 
-- name: Install Oh My Zsh plugins
+- name: Install Oh My Zsh plugins (syntax highlighting, autosuggestions) for {{ ansible_user }}
   ansible.builtin.git:
     repo: "{{ item.repo }}"
-    dest: "{{ ansible_env.HOME }}/.oh-my-zsh/custom/plugins/{{ item.name }}"
-    version: master
+    # CRITICAL FIX: Explicitly specify the user's home directory.
+    # This prevents the path from resolving to /root/ when `become` is active on higher levels.
+    dest: "/home/{{ ansible_user }}/.oh-my-zsh/custom/plugins/{{ item.name }}"
+    version: master # Always get the latest for these plugins, aligns with "latest by default"
+    force: true # Ensure updates even if plugins already exist
   loop:
     - { name: 'zsh-syntax-highlighting', repo: 'https://github.com/zsh-users/zsh-syntax-highlighting.git' }
     - { name: 'zsh-autosuggestions', repo: 'https://github.com/zsh-users/zsh-autosuggestions.git' }
-  when: install_zsh_plugins | bool
-  become: no
+  when: install_zsh_plugins | bool # Only run if user opted for plugins in the main prompt
+  become: true # Use sudo to ensure execution context
+  become_user: "{{ ansible_user }}" # IMPORTANT: Execute the git clone *as* the target user
   tags:
     - base-system
     - zsh
 
-- name: Copy dynamic .zshrc template
+- name: Copy dynamic .zshrc template to configure Zsh for {{ ansible_user }}
   ansible.builtin.template:
-    src: zshrc.j2
-    dest: "{{ ansible_env.HOME }}/.zshrc"
+    src: .zshrc.j2 # Corrected: Now explicitly refers to the dot-file template name
+    dest: "/home/{{ ansible_user }}/.zshrc" # Explicitly use the user's home directory
     mode: '0644'
-  become: no
+  become: true # Use sudo for consistency if other file operations are sudo
+  become_user: "{{ ansible_user }}" # IMPORTANT: Execute the file copy *as* the target user
   tags:
     - base-system
     - zsh

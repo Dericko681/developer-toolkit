@@ -1,0 +1,56 @@
+---
+# Install Google Cloud SDK (gcloud CLI).
+# Supports specific versions or fetches the latest available from the repository.
+
+- name: Determine desired gcloud version
+  ansible.builtin.set_fact:
+    _gcloud_version: "{{ gcloud_version | default('latest') }}"
+  tags:
+    - cloud-cli
+    - gcloud
+
+- name: Add Google Cloud SDK GPG key
+  ansible.builtin.apt_key:
+    url: https://packages.cloud.google.com/apt/doc/apt-key.gpg
+    keyring: /usr/share/keyrings/cloud.google.gpg # Use a dedicated keyring file
+    state: present
+  become: true # Requires root for key management
+  tags:
+    - cloud-cli
+    - gcloud
+
+- name: Add Google Cloud SDK APT repository
+  ansible.builtin.apt_repository:
+    repo: "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main"
+    state: present
+    filename: google-cloud-sdk # Ensures a specific filename for this repository entry
+    update_cache: yes # Update apt cache after adding new repository
+  become: true # Requires root for repository management
+  tags:
+    - cloud-cli
+    - gcloud
+
+- name: Install Google Cloud SDK package
+  ansible.builtin.apt:
+    # If _gcloud_version is 'latest' or undefined, apt will install the latest available.
+    # Otherwise, it will attempt to install the specific version.
+    name: "google-cloud-sdk{{ '' if _gcloud_version == 'latest' else '=' + _gcloud_version }}"
+    state: present # Ensures the package is installed or upgraded to the specified state/version
+    update_cache: yes
+  become: true # Requires root for package installation
+  tags:
+    - cloud-cli
+    - gcloud
+
+- name: Ensure Google Cloud SDK is in PATH in .zshrc for {{ ansible_user }}
+  ansible.builtin.lineinfile:
+    path: "/home/{{ ansible_user }}/.zshrc" # CRITICAL FIX: Explicitly use the user's home directory
+    line: 'export PATH="/usr/lib/google-cloud-sdk/bin:$PATH"'
+    create: yes
+    mode: '0644'
+    regexp: '^export PATH="\/usr\/lib\/google-cloud-sdk\/bin:\$PATH"$' # Ensures idempotency
+  become: true # Use sudo for consistent execution context
+  become_user: "{{ ansible_user }}" # IMPORTANT: Execute as the target user to modify their .zshrc
+  tags:
+    - cloud-cli
+    - gcloud

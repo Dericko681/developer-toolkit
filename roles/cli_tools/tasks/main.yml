@@ -1,39 +1,90 @@
 ---
-# Install CLI Tools (jq, yq)
-- name: CLI Tools Installation
+# This file manages the installation of essential CLI tools like jq and yq.
+
+- name: Debug message for CLI Tools installation
   ansible.builtin.debug:
     msg: "Starting installation tasks for CLI Tools (jq, yq)."
   tags:
     - cli-tools
 
-- name: Install jq
-  ansible.builtin.apt:
-    name: jq={{ jq_version | default('1.6') }}
-    state: present
-    update_cache: yes
-  become: yes
+# --- Install jq (JSON processor) ---
+- name: Determine desired jq version
+  ansible.builtin.set_fact:
+    _jq_version: "{{ jq_version | default('latest') }}" # Default to 'latest'
   tags:
     - cli-tools
     - jq
 
-- name: Download yq
-  ansible.builtin.get_url:
-    url: https://github.com/mikefarah/yq/releases/download/v{{ yq_version | default('4.35.2') }}/yq_linux_{{ ansible_architecture | regex_replace('x86_64', 'amd64') }}
-    dest: /usr/local/bin/yq
-    mode: '0755'
-  become: yes
+- name: Install jq package
+  ansible.builtin.apt:
+    # Use 'state: latest' if 'latest' is desired, otherwise pin the version
+    name: "jq{{ '' if _jq_version == 'latest' else '=' + _jq_version }}"
+    state: present # Ensures the package is installed or upgraded to the specified state/version
+    update_cache: yes
+  become: yes # Requires root for apt
+  tags:
+    - cli-tools
+    - jq
+
+# --- Install yq (YAML processor) ---
+- name: Determine desired yq version
+  ansible.builtin.set_fact:
+    _yq_version: "{{ yq_version | default('latest') }}" # Default to 'latest'
   tags:
     - cli-tools
     - yq
 
+- name: Get latest yq release version if 'latest' is requested
+  ansible.builtin.uri:
+    url: "https://api.github.com/repos/mikefarah/yq/releases/latest"
+    return_content: true
+    method: GET
+  register: yq_latest_release
+  when: _yq_version == 'latest'
+  tags:
+    - cli-tools
+    - yq
+
+- name: Set _yq_version to actual latest release tag
+  ansible.builtin.set_fact:
+    _yq_version: "{{ yq_latest_release.json.tag_name | regex_replace('v','') }}" # Remove 'v' prefix
+  when: _yq_version == 'latest'
+  tags:
+    - cli-tools
+    - yq
+
+- name: Check if desired yq version is already installed
+  ansible.builtin.command: "yq --version"
+  register: yq_installed_check
+  failed_when: false # Do not fail if yq is not found
+  changed_when: false # This task only checks, it doesn't change anything
+  tags:
+    - cli-tools
+    - yq
+
+- name: Download yq binary
+  ansible.builtin.get_url:
+    url: "https://github.com/mikefarah/yq/releases/download/v{{ _yq_version }}/yq_linux_{{ ansible_architecture | regex_replace('x86_64', 'amd64') }}"
+    dest: /usr/local/bin/yq
+    mode: '0755'
+  become: yes # Requires root to install to /usr/local/bin
+  # Only download if yq is not installed, or if the installed version does not match the desired version
+  when: yq_installed_check.rc != 0 or (_yq_version not in yq_installed_check.stderr) # yq --version outputs to stderr
+  tags:
+    - cli-tools
+    - yq
+
+# --- Verify installations ---
 - name: Verify CLI tools installation
   ansible.builtin.command: "{{ item.cmd }}"
   loop:
-    - { name: 'jq', cmd: 'jq --version' }
-    - { name: 'yq', cmd: 'yq --version' }
-  register: tool_versions
-  changed_when: false
-  failed_when: tool_versions.rc != 0
+    - { name: 'jq', cmd: 'jq --version', when: true } # jq is always installed if role runs
+    - { name: 'yq', cmd: 'yq --version', when: true } # yq is always installed if role runs
+  register: cli_tool_versions
+  changed_when: false # Verification tasks do not change system state
+  failed_when: cli_tool_versions.rc != 0 # Fail if the command itself fails
+  loop_control:
+    label: "Verifying {{ item.name }}"
   tags:
     - cli-tools
     - verification

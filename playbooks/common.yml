@@ -1,11 +1,13 @@
 ---
+# This playbook defines common setup tasks applicable to all managed hosts.
 - name: Common Setup Tasks
-  hosts: local
-  become: yes
+  hosts: all
+  become: yes # Ensures tasks run with elevated privileges.
+
   tasks:
     - name: Ensure system is up-to-date
       ansible.builtin.apt:
         update_cache: yes
-        upgrade: dist
+        upgrade: dist # 'dist' handles dependency changes, suitable for base system updates.
       tags:
-        - common
+        - common # Allows selective execution of common tasks.

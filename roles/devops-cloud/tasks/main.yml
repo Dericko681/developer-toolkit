@@ -1,18 +1,22 @@
 ---
-# Install DevOps and Cloud Native tools based on user choices
-- name: DevOps & Cloud Native Tools Installation
+# This file orchestrates the installation of various DevOps and Cloud-Native tools
+# based on user selections from the prompt_user role.
+
+- name: Debug message for DevOps and Cloud Native tools installation
   ansible.builtin.debug:
-    msg: "Starting installation tasks for DevOps & Cloud Native tools based on user choices."
+    msg: "Starting installation tasks for DevOps and Cloud Native tools based on user choices."
   tags:
     - devops
+    - cloud-native
 
-# Ensure common dependencies are installed
-- name: Ensure common dependencies are installed
+# Ensure common dependencies for package managers and repositories
+- name: Ensure common dependencies for tool installations are present
   ansible.builtin.apt:
     name:
-      - curl
-      - wget
-      - gnupg
+      - curl          # Often needed for downloading installation scripts/binaries
+      - gnupg         # For verifying GPG keys of repositories
+      - apt-transport-https # For HTTPS repositories
+      - software-properties-common # For `add-apt-repository`
     state: present
     update_cache: yes
   become: yes
@@ -20,96 +24,99 @@
     - devops
     - dependencies
 
-# Include tool-specific tasks based on user choices
+# --- Include individual tool installation tasks ---
+# Each task is conditionally included based on the 'install_*' fact set by prompt_user.
+
 - name: Include Terraform installation tasks
   ansible.builtin.include_tasks: terraform.yml
-  when: install_terraform is defined and install_terraform | bool
+  when: install_terraform | bool
   tags:
     - devops
     - terraform
 
 - name: Include Kubernetes CLI (kubectl) installation tasks
-  ansible.builtin.include_tasks: k8s_cli.yml
-  when: install_k8s_cli is defined and install_k8s_cli | bool
+  ansible.builtin.include_tasks: kubectl.yml # Using kubectl.yml as the target file
+  when: install_k8s_cli | bool
   tags:
     - devops
-    - k8s-cli
+    - kubectl
 
 - name: Include K9s installation tasks
   ansible.builtin.include_tasks: k9s.yml
-  when: install_k9s is defined and install_k9s | bool
+  when: install_k9s | bool
   tags:
     - devops
     - k9s
 
 - name: Include K3s client tools installation tasks
-  ansible.builtin.include_tasks: k3s_cli.yml
-  when: install_k3s_cli is defined and install_k3s_cli | bool
+  ansible.builtin.include_tasks: k3s_client.yml
+  when: install_k3s_cli | bool
   tags:
     - devops
-    - k3s-cli
+    - k3s_client
 
 - name: Include Ansible CLI installation tasks
   ansible.builtin.include_tasks: ansible_cli.yml
-  when: install_ansible_cli is defined and install_ansible_cli | bool
+  when: install_ansible_cli | bool
   tags:
     - devops
-    - ansible-cli
+    - ansible_cli
 
 - name: Include Ollama installation tasks
   ansible.builtin.include_tasks: ollama.yml
-  when: install_ollama is defined and install_ollama | bool
+  when: install_ollama | bool
   tags:
     - devops
     - ollama
 
-- name: Include MinIO Client (mc) installation tasks
+- name: Include MinIO Client installation tasks
   ansible.builtin.include_tasks: minio_client.yml
-  when: install_minio_client is defined and install_minio_client | bool
+  when: install_minio_client | bool
   tags:
     - devops
-    - minio-client
+    - minio_client
 
 - name: Include Argo CD CLI installation tasks
   ansible.builtin.include_tasks: argocd_cli.yml
-  when: install_argocd_cli is defined and install_argocd_cli | bool
+  when: install_argocd_cli | bool
   tags:
     - devops
-    - argocd-cli
+    - argocd_cli
 
 - name: Include Jenkins CLI installation tasks
   ansible.builtin.include_tasks: jenkins_cli.yml
-  when: install_jenkins_cli is defined and install_jenkins_cli | bool
+  when: install_jenkins_cli | bool
   tags:
     - devops
-    - jenkins-cli
+    - jenkins_cli
 
 - name: Include Helm installation tasks
   ansible.builtin.include_tasks: helm.yml
-  when: install_helm is defined and install_helm | bool
+  when: install_helm | bool
   tags:
     - devops
     - helm
 
-# Verify installations
-- name: Verify DevOps tool installations
+# --- Verify installations ---
+- name: Verify DevOps and Cloud Native tool installations
   ansible.builtin.command: "{{ item.cmd }}"
   loop:
-    - { name: 'terraform', cmd: 'terraform --version', when: 'install_terraform | bool' }
-    - { name: 'kubectl', cmd: 'kubectl version --client', when: 'install_k8s_cli | bool' }
-    - { name: 'k9s', cmd: 'k9s version', when: 'install_k9s | bool' }
-    - { name: 'k3s', cmd: 'k3s --version', when: 'install_k3s_cli | bool' }
-    - { name: 'ansible', cmd: 'ansible --version', when: 'install_ansible_cli | bool' }
-    - { name: 'ollama', cmd: 'ollama --version', when: 'install_ollama | bool' }
-    - { name: 'minio-client', cmd: 'mc --version', when: 'install_minio_client | bool' }
-    - { name: 'argocd', cmd: 'argocd version --client', when: 'install_argocd_cli | bool' }
-    - { name: 'helm', cmd: 'helm version', when: 'install_helm | bool' }
-  register: tool_versions
+    - { name: 'Terraform', cmd: 'terraform version', when: install_terraform | bool }
+    - { name: 'Kubectl', cmd: 'kubectl version --client --short', when: install_k8s_cli | bool }
+    - { name: 'K9s', cmd: 'k9s version --short', when: install_k9s | bool }
+    - { name: 'K3s CLI', cmd: 'k3s --version', when: install_k3s_cli | bool }
+    - { name: 'Ansible CLI', cmd: 'ansible --version', when: install_ansible_cli | bool }
+    - { name: 'Ollama', cmd: 'ollama --version', when: install_ollama | bool }
+    - { name: 'MinIO Client', cmd: 'mc --version', when: install_minio_client | bool }
+    - { name: 'Argo CD CLI', cmd: 'argocd version --client --short', when: install_argocd_cli | bool }
+    - { name: 'Jenkins CLI', cmd: 'java -jar ~/.jenkins/jenkins-cli.jar -v', when: install_jenkins_cli | bool } # Corrected path
+    - { name: 'Helm', cmd: 'helm version --client --short', when: install_helm | bool }
+  register: devops_tool_versions
   changed_when: false
-  failed_when: tool_versions.rc != 0
+  failed_when: devops_tool_versions.rc != 0
   when: item.when
   loop_control:
-    label: "{{ item.name }}"
+    label: "Verifying {{ item.name }}"
   tags:
     - devops
     - verification

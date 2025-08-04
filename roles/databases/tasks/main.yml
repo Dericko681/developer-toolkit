@@ -1,59 +1,64 @@
 ---
-# Install database tools and servers based on user choices
-- name: Database Tools Installation
+# This file orchestrates the installation of various database clients and servers
+# based on user selections from the prompt_user role.
+
+- name: Debug message for Database Tools Installation
   ansible.builtin.debug:
     msg: "Starting installation tasks for database tools based on user choices."
   tags:
     - databases
 
-# Ensure common dependencies for database tools
-- name: Ensure database client dependencies are installed
-  ansible.builtin.apt:
-    name:
-      - libpq-dev  # For PostgreSQL client
-    state: present
-    update_cache: yes
-  become: yes
-  tags:
-    - databases
-    - dependencies
+# Note: Common system-wide dependencies (like build-essentials) should ideally be handled
+# by a more foundational role (e.g., base_system).
+# Specific client dependencies like libpq-dev will be placed in db_clients.yml.
 
-# Include common database clients installation tasks
+# --- Include database client installation tasks ---
 - name: Include common database clients installation tasks
   ansible.builtin.include_tasks: db_clients.yml
-  when: install_db_clients is defined and install_db_clients | bool
+  when: install_db_clients | bool
   tags:
     - databases
     - db-clients
 
-# Include PostgreSQL client installation tasks
-- name: Include PostgreSQL client installation tasks
-  ansible.builtin.include_tasks: postgresql.yml
-  when: install_db_clients is defined and install_db_clients | bool
-  tags:
-    - databases
-    - postgresql
-
-# Include PostgreSQL server installation tasks (optional)
+# --- Include PostgreSQL server installation tasks ---
 - name: Include PostgreSQL server installation tasks
   ansible.builtin.include_tasks: postgresql_server.yml
-  when: install_postgresql_server is defined and install_postgresql_server | bool
+  when: install_postgresql_server | bool
   tags:
     - databases
     - postgresql-server
 
-# Verify installations
+# --- Include other database server/client tasks here as needed ---
+# Example:
+# - name: Include MySQL server installation tasks
+#   ansible.builtin.include_tasks: mysql_server.yml
+#   when: install_mysql_server | bool
+#   tags:
+#     - databases
+#     - mysql-server
+
+# - name: Include MongoDB installation tasks
+#   ansible.builtin.include_tasks: mongodb.yml
+#   when: install_mongodb | bool
+#   tags:
+#     - databases
+#     - mongodb
+
+# --- Verify installations ---
 - name: Verify database tool installations
   ansible.builtin.command: "{{ item.cmd }}"
   loop:
-    - { name: 'psql', cmd: 'psql --version', when: 'install_db_clients | bool' }
-    - { name: 'postgresql-server', cmd: 'pg_isready', when: 'install_postgresql_server | bool' }
-  register: tool_versions
-  changed_when: false
-  failed_when: tool_versions.rc != 0
-  when: item.when
+    - { name: 'psql (client)', cmd: 'psql --version', when: install_db_clients | bool }
+    - { name: 'PostgreSQL Server (pg_isready)', cmd: 'pg_isready', when: install_postgresql_server | bool }
+    # Add verification for other clients/servers as they are implemented
+    # - { name: 'mysql (client)', cmd: 'mysql --version', when: install_db_clients | bool }
+    # - { name: 'redis-cli', cmd: 'redis-cli --version', when: install_db_clients | bool }
+  register: db_tool_versions
+  changed_when: false # Verification tasks do not change system state
+  failed_when: db_tool_versions.rc != 0 # Fail if the verification command itself fails
+  when: item.when # Only run verification for tools that were selected for installation
   loop_control:
-    label: "{{ item.name }}"
+    label: "Verifying {{ item.name }}"
   tags:
     - databases
     - verification

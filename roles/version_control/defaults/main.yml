@@ -1,0 +1,5 @@
+---
+# Default versions for version control tools.
+# These values are used if not overridden by group_vars/all.yml or other higher-precedence variables.
+
+git_version: "latest" # Example: "2.34.1" for a specific version

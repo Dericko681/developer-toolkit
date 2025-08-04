@@ -17,12 +17,21 @@ source $ZSH/oh-my-zsh.sh
 
 {% if install_zsh_plugins | bool %}
 # Enable syntax highlighting
+# This path is already sourced by oh-my-zsh for standard plugins, but explicitly including it is harmless if needed.
+# However, for plugins installed by OMZ's plugin manager, OMZ often handles sourcing.
+# If these are custom plugins or installed outside the OMZ plugin system, this is correct.
 source ${(q-)ZSH_CUSTOM:-$ZSH/custom}/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
 # Enable autosuggestions
 source ${(q-)ZSH_CUSTOM:-$ZSH/custom}/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh
 {% endif %}
 
 COMPLETION_WAITING_DOTS="true"
+
+#### COMMON PATHS & ENV VARS ####
+# Add ~/.local/bin to PATH for user-installed Python packages (like pip installs --user)
+# This handles requirements for Python, Ansible, Hugging Face CLI, etc.
+# This line should appear only once.
+export PATH="$HOME/.local/bin:$PATH"
 
 #### ALIASES ####
 # General
@@ -38,20 +47,21 @@ alias gc='git commit'
 #### LANGUAGE ENVIRONMENTS ####
 {% if install_python | bool %}
 # Python
-export PATH="$HOME/.local/bin:$PATH"
+# PATH already handled above in COMMON PATHS
 alias py='python3'
 alias pip='pip3'
 {% endif %}
 
 {% if install_rust | bool %}
 # Rust
-source $HOME/.cargo/env
+source "$HOME/.cargo/env" # Use double quotes for paths with spaces or special characters
 alias rustup-update='rustup update'
 {% endif %}
 
 {% if install_java | bool %}
 # Java
-export JAVA_HOME="/usr/lib/jvm/java-{{ java_version | default('17') }}-openjdk-amd64"
+# Adjust JAVA_HOME to be dynamic based on architecture and assumed OpenJDK naming
+export JAVA_HOME="/usr/lib/jvm/java-{{ java_version | default('17') }}-openjdk-{{ ansible_architecture | regex_replace('x86_64', 'amd64') }}"
 alias javac-run='javac *.java && java $(basename *.java .java)'
 {% endif %}
 
@@ -64,9 +74,10 @@ alias go-build='go build'
 {% endif %}
 
 {% if install_nodejs | bool %}
-# NodeJS
+# NodeJS (NVM)
 export NVM_DIR="$HOME/.nvm"
-[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh" # Load NVM
+# NVM Bash Completion is sourced here, no need for duplicate at the end of file
 [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"
 alias npm-global='npm install -g'
 {% endif %}
@@ -91,7 +102,7 @@ alias k3s-ctl='k3s kubectl'
 {% endif %}
 
 {% if install_ansible_cli | bool %}
-export PATH="$HOME/.local/bin:$PATH"
+# PATH already handled above in COMMON PATHS
 alias ansible-run='ansible-playbook'
 {% endif %}
 
@@ -117,7 +128,7 @@ alias helm-install='helm install'
 
 #### AI/ML TOOLS ####
 {% if install_huggingface_cli | bool %}
-export PATH="$HOME/.local/bin:$PATH"
+# PATH already handled above in COMMON PATHS
 alias hf-login='huggingface-cli login'
 {% endif %}
 
@@ -162,7 +173,10 @@ alias code-open='code .'
 {% if install_containerization | bool %}
 alias docker-ps='docker ps -a'
 alias docker-build='docker build .'
-alias docker="sudo docker"
+# Removed: alias docker="sudo docker"
+# It's recommended to log out and log back in (or use 'newgrp docker')
+# after adding yourself to the 'docker' group to run Docker commands without sudo.
+# This alias circumvents that, which might mask permission issues.
 {% endif %}
 
 #### CLI UTILITIES ####
@@ -181,6 +195,3 @@ export SDKMAN_DIR="$HOME/.sdkman"
 
 #### GPG ####
 export GPG_TTY=$(tty)
-
-#### NVM BASH COMPLETION (for compatibility) ####
-[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"

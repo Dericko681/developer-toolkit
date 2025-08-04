@@ -1,33 +1,52 @@
 ---
-# Install K3s client tools
-- name: Download K3s installer
+# Install K3s client tools.
+# Supports specific versions or fetches the latest stable release.
+
+- name: Determine desired K3s version
+  ansible.builtin.set_fact:
+    _k3s_version: "{{ k3s_version | default('latest') }}"
+  tags:
+    - devops
+    - k3s_client
+
+- name: Check if desired K3s client version is already installed
+  ansible.builtin.command: "k3s --version"
+  register: k3s_installed_check
+  failed_when: false
+  changed_when: false
+  tags:
+    - devops
+    - k3s_client
+
+- name: Download K3s installer script
   ansible.builtin.get_url:
     url: https://get.k3s.io
     dest: /tmp/k3s-install.sh
     mode: '0755'
-  become: true
-  when: install_k3s_cli | bool
+  become: true # Download to a system temporary directory
+  # Always download the script to ensure it's the latest version of the installer itself
   tags:
     - devops
-    - k3s-cli
+    - k3s_client
 
-- name: Install K3s client tools
+- name: Install K3s client tools with specified version or latest
   ansible.builtin.command:
-    cmd: /tmp/k3s-install.sh --version {{ k3s_version | default('1.28.2+k3s1') }} --client-only
-    creates: /usr/local/bin/k3s
-  become: true
-  when: install_k3s_cli | bool
+    cmd: >
+      /tmp/k3s-install.sh --client-only
+      {% if _k3s_version != 'latest' %} --version {{ _k3s_version }} {% endif %}
+    creates: /usr/local/bin/k3s # Idempotency check for the k3s binary
+  become: true # Requires root to install to /usr/local/bin
+  # Only install if not installed or if installed version doesn't match desired version
+  when: k3s_installed_check.rc != 0 or (_k3s_version != 'latest' and _k3s_version not in k3s_installed_check.stdout)
   tags:
     - devops
-    - k3s-cli
+    - k3s_client
 
-- name: Verify K3s installation
-  ansible.builtin.command: k3s --version
-  register: k3s_version
-  changed_when: false
-  failed_when: k3s_version.rc != 0
-  when: install_k3s_cli | bool
+- name: Clean up K3s installer script
+  ansible.builtin.file:
+    path: /tmp/k3s-install.sh
+    state: absent
+  become: true
   tags:
     - devops
-    - k3s-cli
-    - verification
+    - k3s_client

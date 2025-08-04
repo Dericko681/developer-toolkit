@@ -1,8 +1,9 @@
 ---
-# Install common database clients
-- name: Install PostgreSQL client
+# Install common database client tools.
+
+- name: Ensure PostgreSQL client development libraries are installed
   ansible.builtin.apt:
-    name: postgresql-client-{{ postgresql_version | default('14') }}
+    name: libpq-dev # Needed for some Python libraries or other tools interacting with Postgres
     state: present
     update_cache: yes
   become: true
@@ -11,21 +12,33 @@
     - db-clients
     - postgresql
 
-# Placeholder for additional database clients (e.g., MySQL, Redis)
+- name: Install PostgreSQL client
+  ansible.builtin.apt:
+    name: "postgresql-client-{{ postgresql_version | default('14') }}" # Uses version from defaults
+    state: present
+    update_cache: yes
+  become: true
+  tags:
+    - databases
+    - db-clients
+    - postgresql
+
 - name: Install MySQL client
   ansible.builtin.apt:
     name: mysql-client
     state: present
+    update_cache: yes # Ensure cache is updated for latest versions
   become: true
   tags:
     - databases
     - db-clients
     - mysql
 
-- name: Install Redis client
+- name: Install Redis client (redis-tools)
   ansible.builtin.apt:
     name: redis-tools
     state: present
+    update_cache: yes # Ensure cache is updated for latest versions
   become: true
   tags:
     - databases

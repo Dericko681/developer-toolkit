@@ -1,20 +1,46 @@
 ---
-# Install Ollama
-- name: Download Ollama installer
-  ansible.builtin.get_url:
-    url: https://ollama.ai/install.sh
-    dest: /tmp/ollama-install.sh
-    mode: '0755'
-    checksum: sha256:{{ lookup('url', 'https://ollama.ai/install.sh') | hash('sha256') }}
-  become: true
+# Install Ollama (local LLM runner).
+# The installer script typically fetches the latest version.
+
+- name: Check if Ollama is already installed
+  ansible.builtin.command: "ollama --version"
+  register: ollama_installed_check
+  failed_when: false
+  changed_when: false
   tags:
     - devops
     - ollama
 
-- name: Install Ollama
+- name: Download Ollama installer script
+  ansible.builtin.get_url:
+    url: https://ollama.ai/install.sh
+    dest: /tmp/ollama-install.sh
+    mode: '0755'
+    # Note: Checksum for dynamic scripts can be tricky.
+    # For production, consider pinning the script version or hosting it internally.
+    # For now, we'll skip the checksum for 'latest' script.
+    # checksum: sha256:{{ lookup('url', 'https://ollama.ai/install.sh') | hash('sha256') }} # This checksum is dynamic
+  become: true # Download to a system temporary directory
+  # Always download to ensure we have the latest installer script
+  tags:
+    - devops
+    - ollama
+
+- name: Install Ollama via script
   ansible.builtin.command:
     cmd: /tmp/ollama-install.sh
-    creates: /usr/local/bin/ollama
+    creates: /usr/local/bin/ollama # Idempotency check: creates this binary
+  become: true # Script requires root to install to /usr/local/bin
+  # Only run if Ollama is not installed
+  when: ollama_installed_check.rc != 0
+  tags:
+    - devops
+    - ollama
+
+- name: Clean up Ollama installer script
+  ansible.builtin.file:
+    path: /tmp/ollama-install.sh
+    state: absent
   become: true
   tags:
     - devops

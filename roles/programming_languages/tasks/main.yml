@@ -1,25 +1,31 @@
 ---
-# Install programming languages based on user choices
-- name: Programming Languages Installation
+# This file orchestrates the installation of various programming languages
+# based on user selections made during the playbook prompt.
+
+- name: Debug message for programming languages installation
   ansible.builtin.debug:
     msg: "Starting installation tasks for programming languages based on user choices."
   tags:
     - programming
 
-# Ensure common dependencies for language installations
+# Ensure common build dependencies are installed for compiling languages.
+# Note: 'curl' is typically installed by the 'base_system' role, but including it here
+# ensures it's present if 'base_system' was skipped or modified.
 - name: Ensure build dependencies are installed
   ansible.builtin.apt:
     name:
       - curl
-      - build-essential
+      - build-essential # Essential for compiling many language tools.
     state: present
-    update_cache: yes
-  become: yes
+    update_cache: yes # Always update cache before installing new packages.
+  become: yes # Requires root privileges for package installation.
   tags:
     - programming
     - dependencies
 
-# Include language-specific tasks based on user choices
+# Include language-specific tasks conditionally based on user choices.
+# The 'is defined' check handles cases where a variable might not have been set
+# (e.g., if the prompt role was skipped or a specific category was not selected).
 - name: Include Rust installation tasks
   ansible.builtin.include_tasks: rust.yml
   when: install_rust is defined and install_rust | bool
@@ -55,21 +61,22 @@
     - programming
     - python
 
-# Verify installations
+# Verify successful installations of selected programming languages.
 - name: Verify programming language installations
   ansible.builtin.command: "{{ item.cmd }}"
+  # This loop iterates through a list of commands to check versions.
   loop:
-    - { name: 'rust', cmd: 'rustc --version', when: 'install_rust | bool' }
-    - { name: 'java', cmd: 'java -version', when: 'install_java | bool' }
-    - { name: 'go', cmd: 'go version', when: 'install_go | bool' }
-    - { name: 'nodejs', cmd: 'node --version', when: 'install_nodejs | bool' }
-    - { name: 'python', cmd: 'python3 --version', when: 'install_python | bool' }
-  register: tool_versions
-  changed_when: false
-  failed_when: tool_versions.rc != 0
-  when: item.when
+    - { name: 'rust', cmd: 'rustc --version', when: install_rust | bool }
+    - { name: 'java', cmd: 'java -version', when: install_java | bool }
+    - { name: 'go', cmd: 'go version', when: install_go | bool }
+    - { name: 'nodejs', cmd: 'node --version', when: install_nodejs | bool }
+    - { name: 'python', cmd: 'python3 --version', when: install_python | bool }
+  register: tool_versions # Registers the output of each command.
+  changed_when: false # This task only checks, it doesn't change anything.
+  failed_when: tool_versions.rc != 0 # Fails if the command returns a non-zero exit code.
+  when: item.when # Only run verification for languages that were selected for installation.
   loop_control:
-    label: "{{ item.name }}"
+    label: "Verifying {{ item.name }}" # Provides a clearer output during playbook run.
   tags:
     - programming
     - verification

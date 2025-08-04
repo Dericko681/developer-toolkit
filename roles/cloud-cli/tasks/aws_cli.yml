@@ -1,29 +1,94 @@
 ---
-# Install AWS CLI
-- name: Download AWS CLI installer
+# Install AWS CLI (Amazon Web Services command-line interface).
+# Supports specific versions or fetches the latest available.
+
+- name: Determine desired AWS CLI version
+  ansible.builtin.set_fact:
+    _aws_cli_version: "{{ aws_cli_version | default('latest') }}"
+  tags:
+    - cloud-cli
+    - aws-cli
+
+- name: Get latest AWS CLI v2 installer URL if 'latest' is requested
+  ansible.builtin.uri:
+    url: "https://api.github.com/repos/aws/aws-cli/releases/latest"
+    return_content: true
+    method: GET
+  register: aws_cli_latest_release
+  when: _aws_cli_version == 'latest'
+  tags:
+    - cloud-cli
+    - aws-cli
+
+- name: Set _aws_cli_version to actual latest release tag
+  ansible.builtin.set_fact:
+    _aws_cli_version: "{{ aws_cli_latest_release.json.tag_name | regex_replace('^v','') }}" # Remove 'v' prefix
+  when: _aws_cli_version == 'latest'
+  tags:
+    - cloud-cli
+    - aws-cli
+
+- name: Check if desired AWS CLI version is already installed
+  ansible.builtin.command: "aws --version"
+  register: aws_cli_installed_check
+  failed_when: false # Do not fail if aws command is not found
+  changed_when: false # This task only checks, it doesn't change anything
+  tags:
+    - cloud-cli
+    - aws-cli
+
+- name: Download AWS CLI installer zip
   ansible.builtin.get_url:
-    url: https://awscli.amazonaws.com/awscli-exe-linux-{{ ansible_architecture | regex_replace('x86_64', 'x86_64') | regex_replace('aarch64', 'aarch64') }}.zip
-    dest: /tmp/awscliv2.zip
+    url: "https://awscli.amazonaws.com/awscli-exe-linux-{{ ansible_architecture | regex_replace('x86_64', 'x86_64') | regex_replace('aarch64', 'aarch64') }}.zip"
+    dest: "/tmp/awscliv2_{{ _aws_cli_version }}.zip" # Include version in filename
     mode: '0644'
+  become: true # Download to a system temporary directory
+  # Only download if not installed or if installed version doesn't match desired version
+  when: aws_cli_installed_check.rc != 0 or _aws_cli_version not in aws_cli_installed_check.stderr
+  tags:
+    - cloud-cli
+    - aws-cli
+
+- name: Create temporary directory for AWS CLI extraction
+  ansible.builtin.file:
+    path: "/tmp/aws_cli_extract_{{ ansible_process_id }}" # Unique temp dir
+    state: directory
+    mode: '0755'
   become: true
   tags:
     - cloud-cli
     - aws-cli
 
-- name: Extract AWS CLI
+- name: Extract AWS CLI installer
   ansible.builtin.unarchive:
-    src: /tmp/awscliv2.zip
-    dest: /tmp
-    remote_src: yes
-  become: true
+    src: "/tmp/awscliv2_{{ _aws_cli_version }}.zip"
+    dest: "/tmp/aws_cli_extract_{{ ansible_process_id }}"
+    remote_src: yes # Source is on the remote machine's /tmp
+  become: true # Requires root to extract to a system temporary directory
+  # Only extract if not installed or if installed version doesn't match desired version
+  when: aws_cli_installed_check.rc != 0 or _aws_cli_version not in aws_cli_installed_check.stderr
   tags:
     - cloud-cli
     - aws-cli
 
-- name: Install AWS CLI
+- name: Install AWS CLI (executing the install script)
   ansible.builtin.command:
-    cmd: /tmp/aws/install --bin-dir /usr/local/bin --install-dir /usr/local/aws-cli --update
-    creates: /usr/local/bin/aws
+    cmd: "/tmp/aws_cli_extract_{{ ansible_process_id }}/aws/install --bin-dir /usr/local/bin --install-dir /usr/local/aws-cli --update"
+    creates: /usr/local/bin/aws # Idempotency check: creates this binary
+  become: true # Script requires root to install to /usr/local/bin
+  # Only install if not installed or if installed version doesn't match desired version
+  when: aws_cli_installed_check.rc != 0 or _aws_cli_version not in aws_cli_installed_check.stderr
+  tags:
+    - cloud-cli
+    - aws-cli
+
+- name: Clean up AWS CLI installer zip and temporary extraction directory
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - "/tmp/awscliv2_{{ _aws_cli_version }}.zip"
+    - "/tmp/aws_cli_extract_{{ ansible_process_id }}"
   become: true
   tags:
     - cloud-cli

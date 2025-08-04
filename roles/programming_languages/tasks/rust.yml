@@ -1,31 +1,61 @@
 ---
-# Install Rust using rustup
-- name: Check if Rust is already installed
-  ansible.builtin.command: rustc --version
-  register: rustc_version
+# Install Rust using rustup, supporting specific versions or the latest stable.
+
+- name: Determine current Rust toolchain (if installed)
+  ansible.builtin.shell: |
+    source {{ ansible_env.HOME }}/.cargo/env 2>/dev/null || true
+    rustup show active toolchain | awk '{print $1}'
+  args:
+    executable: /bin/bash # Use bash for source command
+  register: current_rust_toolchain
   failed_when: false
   changed_when: false
+  # You might need become_user here too if the rustup path might not be in
+  # the ansible_user's PATH when becoming root, though usually 'which' handles that.
+  # For safety, you could add:
+  become: true
+  become_user: "{{ ansible_user }}"
   tags:
     - programming
     - rust
 
-- name: Install Rust using rustup
+- name: Set target Rust toolchain
+  ansible.builtin.set_fact:
+    # If rust_version is 'latest' or not defined, default to 'stable'.
+    # Otherwise, use the specified version.
+    target_rust_toolchain: "{{ 'stable' if rust_version == 'latest' or rust_version is not defined else rust_version }}"
+  tags:
+    - programming
+    - rust
+
+- name: Ensure rustup is installed and configured (for current user)
   ansible.builtin.shell:
-    cmd: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain {{ rust_version | default('1.74.0') }} --no-modify-path
-    creates: "{{ ansible_env.HOME }}/.cargo/bin/rustc"
-  become: false
-  when: rustc_version.rc != 0
+    cmd: >
+      curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s --
+      -y --default-toolchain {{ target_rust_toolchain }} --no-modify-path
+    creates: "{{ ansible_env.HOME }}/.cargo/bin/rustup" # Idempotency check for rustup itself
+  # IMPORTANT: Run this as the target user. If curl/sh need elevated access for some reason
+  # (rare, but possible in restrictive environments), you'd use become: true then become_user.
+  # For typical rustup installs, running as the user is correct.
+  become: true # Elevate to root...
+  become_user: "{{ ansible_user }}" # ...then switch to the target user
+  # Only run if rustup is not installed OR the desired toolchain is not active
+  when: >
+    not (current_rust_toolchain.rc == 0 and
+    current_rust_toolchain.stdout is search(target_rust_toolchain))
   tags:
     - programming
     - rust
 
-- name: Add Rust to PATH in .zshrc
+- name: Add Rust to PATH in .zshrc if not already present
   ansible.builtin.lineinfile:
-    path: "{{ ansible_env.HOME }}/.zshrc"
+    path: "/home/{{ ansible_user }}/.zshrc" # <-- Use the explicit full path for clarity and safety
     line: 'source $HOME/.cargo/env'
     create: yes
     mode: '0644'
-  become: false
+    regexp: '^source \$HOME/\.cargo/env$' # Ensure it's added only once
+  become: true # <-- Elevate privileges to ensure write access
+  become_user: "{{ ansible_user }}" # <-- Crucially, execute as the target user to modify THEIR .zshrc
   tags:
     - programming
     - rust

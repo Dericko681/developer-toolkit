@@ -1,11 +1,50 @@
 ---
-# Install Argo CD CLI
-- name: Download Argo CD CLI
-  ansible.builtin.get_url:
-    url: "https://github.com/argoproj/argo-cd/releases/download/v{{ argocd_version | default('2.9.0') }}/argocd-linux-{{ ansible_architecture | regex_replace('x86_64', 'amd64') }}"
-    dest: /usr/local/bin/argocd
-    mode: '0755'
-  become: true
+# Install Argo CD CLI.
+# Supports specific versions or fetches the latest stable release.
+
+- name: Determine desired Argo CD CLI version
+  ansible.builtin.set_fact:
+    _argocd_version: "{{ argocd_version | default('latest') }}"
   tags:
     - devops
-    - argocd-cli
+    - argocd_cli
+
+- name: Get latest Argo CD CLI release version if 'latest' is requested
+  ansible.builtin.uri:
+    url: "https://api.github.com/repos/argoproj/argo-cd/releases/latest"
+    return_content: true
+    method: GET
+  register: argocd_latest_release
+  when: _argocd_version == 'latest'
+  tags:
+    - devops
+    - argocd_cli
+
+- name: Set _argocd_version to actual latest release tag
+  ansible.builtin.set_fact:
+    _argocd_version: "{{ argocd_latest_release.json.tag_name | regex_replace('v','') }}" # Remove 'v' prefix
+  when: _argocd_version == 'latest'
+  tags:
+    - devops
+    - argocd_cli
+
+- name: Check if desired Argo CD CLI version is already installed
+  ansible.builtin.command: "argocd version --client --short"
+  register: argocd_installed_check
+  failed_when: false
+  changed_when: false
+  tags:
+    - devops
+    - argocd_cli
+
+- name: Download Argo CD CLI binary
+  ansible.builtin.get_url:
+    url: "https://github.com/argoproj/argo-cd/releases/download/v{{ _argocd_version }}/argocd-linux-{{ ansible_architecture | regex_replace('x86_64', 'amd64') }}"
+    dest: /usr/local/bin/argocd
+    mode: '0755'
+  become: true # Install to system-wide bin directory
+  # Only download if not installed or if installed version doesn't match desired version
+  when: argocd_installed_check.rc != 0 or _argocd_version not in argocd_installed_check.stdout
+  tags:
+    - devops
+    - argocd_cli

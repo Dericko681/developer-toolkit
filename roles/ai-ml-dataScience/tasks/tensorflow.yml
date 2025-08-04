@@ -1,37 +1,25 @@
 ---
-# Install NVIDIA drivers and CUDA (if GPU available, shared with PyTorch)
-- name: Add NVIDIA driver repository
-  ansible.builtin.apt_repository:
-    repo: "deb http://deb.debian.org/debian {{ ansible_distribution_release }} main contrib non-free"
-    state: present
-  become: true
-  when: gpu_available | bool
+# Install TensorFlow (deep learning framework).
+# Installs CPU or GPU version based on 'gpu_available' fact,
+# and supports specific versions or the latest available.
+
+- name: Determine desired TensorFlow version
+  ansible.builtin.set_fact:
+    _tensorflow_version: "{{ tensorflow_version | default('latest') }}"
   tags:
     - ai-ml
     - tensorflow
-    - gpu
 
-- name: Install NVIDIA drivers and CUDA toolkit
-  ansible.builtin.apt:
-    name:
-      - nvidia-driver
-      - nvidia-cuda-toolkit
-    state: present
-    update_cache: yes
-  become: true
-  when: gpu_available | bool
-  tags:
-    - ai-ml
-    - tensorflow
-    - gpu
-
-# Install TensorFlow
-- name: Install TensorFlow (CPU or GPU version based on availability)
+- name: Install TensorFlow (CPU or GPU version) for {{ ansible_user }}
   ansible.builtin.pip:
-    name: "{{ 'tensorflow==' + tensorflow_version | default('2.15.0') if gpu_available else 'tensorflow-cpu==' + tensorflow_version | default('2.15.0') }}"
+    # If _tensorflow_version is 'latest', state: latest handles it.
+    # Otherwise, pin to the specific version.
+    name: >
+      {{ 'tensorflow' if _tensorflow_version == 'latest' and gpu_available | bool else 'tensorflow-cpu' if _tensorflow_version == 'latest' and not (gpu_available | bool) else 'tensorflow==' + _tensorflow_version if gpu_available | bool else 'tensorflow-cpu==' + _tensorflow_version }}
     executable: pip3
-    state: present
-  become: false
+    state: present # Installs or upgrades to desired state/version
+  become: true # Use sudo to ensure correct execution context
+  become_user: "{{ ansible_user }}" # IMPORTANT: Execute pip installation as the target user (e.g., ubuntu)
   tags:
     - ai-ml
     - tensorflow

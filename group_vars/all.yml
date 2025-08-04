@@ -1,5 +1,9 @@
 ---
-# Global variables for tool versions
+# Global variables for managing tool versions across all hosts.
+# Versions specified here will be used unless overridden.
+# If a version is not explicitly defined in a role's task,
+# it should default to "latest" as per the role's logic.
+
 python_version: "3.10"
 rust_version: "1.74.0"
 java_version: "17"
@@ -10,9 +14,9 @@ terraform_version: "1.9.4"
 kubectl_version: "1.28.0"
 k9s_version: "0.32.5"
 k3s_version: "1.28.2+k3s1"
-ansible_version: "8.0.0"
+ansible_version: "8.0.0" # Clarify if this is for documenting or installing Ansible.
 ollama_version: "0.1.0"
-minio_version: "latest"
+minio_version: "latest" # Explicitly setting "latest" here is fine.
 argocd_version: "2.9.0"
 helm_version: "3.12.0"
 jupyterlab_version: "4.0.0"
@@ -22,7 +26,7 @@ huggingface_version: "0.23.0"
 postgresql_version: "14"
 aws_cli_version: "2.13.0"
 gcloud_version: "447.0.0-0"
-vscode_version: "latest"
+vscode_version: "latest" # Explicitly setting "latest" here is fine.
 git_version: "2.34.1"
 docker_version: "24.0.5"
 jq_version: "1.6"

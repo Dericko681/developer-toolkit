@@ -1,58 +1,79 @@
 ---
-# Install Containerization tools (Docker)
-- name: Containerization Tools Installation
+# This file handles the installation of containerization tools, primarily Docker Engine.
+
+- name: Debug message for Containerization Tools installation
   ansible.builtin.debug:
     msg: "Starting installation tasks for Containerization tools (Docker)."
   tags:
     - containerization
 
-- name: Add Docker APT repository
-  ansible.builtin.apt_repository:
-    repo: deb [arch={{ ansible_architecture | regex_replace('x86_64', 'amd64') }}] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable
-    state: present
-    filename: docker
-  become: yes
-  tags:
-    - containerization
-    - docker
-
+# --- Add Docker APT repository ---
 - name: Add Docker GPG key
   ansible.builtin.apt_key:
     url: https://download.docker.com/linux/ubuntu/gpg
     state: present
-  become: yes
+    keyring: /etc/apt/trusted.gpg.d/docker.gpg # Use a dedicated keyring file for security
+  become: yes # Requires root for key management
   tags:
     - containerization
     - docker
 
-- name: Install Docker
+- name: Add Docker APT repository
+  ansible.builtin.apt_repository:
+    repo: "deb [arch={{ ansible_architecture | regex_replace('x86_64', 'amd64') }} signed-by=/etc/apt/trusted.gpg.d/docker.gpg] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
+    state: present
+    filename: docker # Ensures a specific filename for this repository entry
+    update_cache: yes # Update apt cache after adding new repository
+  become: yes # Requires root for repository management
+  tags:
+    - containerization
+    - docker
+
+# --- Install Docker Engine and associated packages ---
+- name: Determine desired Docker Engine version
+  ansible.builtin.set_fact:
+    _docker_version: "{{ docker_version | default('latest') }}" # Default to 'latest'
+  tags:
+    - containerization
+    - docker
+
+- name: Install Docker Engine, CLI, and containerd.io
   ansible.builtin.apt:
     name:
-      - docker-ce={{ docker_version | default('24.0.5') }}-1~ubuntu.{{ ansible_distribution_version }}~{{ ansible_distribution_release }}
+      # If _docker_version is 'latest', apt will install the latest available in the repo.
+      # If a specific version is provided (e.g., "24.0.5"), it's assumed to be the
+      # base version number without the distribution-specific suffix (e.g., "-1~ubuntu.22.04~jammy").
+      # Apt will then try to find the best match. For exact pinning, the full version string
+      # including the distribution suffix (e.g., "24.0.5-1~ubuntu.22.04~jammy") is required.
+      - "docker-ce{{ '' if _docker_version == 'latest' else '=' + _docker_version }}"
       - docker-ce-cli
       - containerd.io
-    state: present
-    update_cache: yes
-  become: yes
+    state: present # Ensures packages are installed or upgraded to the specified state/version
+    update_cache: yes # Ensure apt cache is up-to-date
+  become: yes # Requires root for package installation
   tags:
     - containerization
     - docker
 
-- name: Add user to docker group
+# --- Post-installation steps ---
+- name: Add current user to 'docker' group to run Docker commands without sudo
   ansible.builtin.user:
-    name: "{{ ansible_user_id }}"
+    name: "{{ ansible_user_id }}" # The current user running the playbook
     groups: docker
-    append: yes
-  become: yes
+    append: yes # Adds user to the group without removing them from others
+  become: yes # Requires root to modify user groups
   tags:
     - containerization
     - docker
+  notify: # Inform user about session restart needed
+    - Restart shell for docker group
 
+# --- Verify Docker installation ---
 - name: Verify Docker installation
   ansible.builtin.command: docker --version
-  register: docker_version
-  changed_when: false
-  failed_when: docker_version.rc != 0
+  register: docker_version_check
+  changed_when: false # This task only checks, it doesn't change anything
+  failed_when: docker_version_check.rc != 0 # Fail if docker command itself fails
   tags:
     - containerization
     - verification

@@ -1,31 +1,96 @@
 ---
-# Install Helm
-- name: Download Helm
+# Install Helm (Kubernetes package manager).
+# Supports specific versions or fetches the latest stable release.
+
+- name: Determine desired Helm version
+  ansible.builtin.set_fact:
+    _helm_version: "{{ helm_version | default('latest') }}"
+  tags:
+    - devops
+    - helm
+
+- name: Get latest Helm release version if 'latest' is requested
+  ansible.builtin.uri:
+    url: "https://api.github.com/repos/helm/helm/releases/latest"
+    return_content: true
+    method: GET
+  register: helm_latest_release
+  when: _helm_version == 'latest'
+  tags:
+    - devops
+    - helm
+
+- name: Set _helm_version to actual latest release tag
+  ansible.builtin.set_fact:
+    _helm_version: "{{ helm_latest_release.json.tag_name | regex_replace('v','') }}" # Remove 'v' prefix
+  when: _helm_version == 'latest'
+  tags:
+    - devops
+    - helm
+
+- name: Check if desired Helm version is already installed
+  ansible.builtin.command: "helm version --client --short"
+  register: helm_installed_check
+  failed_when: false
+  changed_when: false
+  tags:
+    - devops
+    - helm
+
+- name: Download Helm tarball
   ansible.builtin.get_url:
-    url: "https://get.helm.sh/helm-v{{ helm_version | default('3.12.0') }}-linux-{{ ansible_architecture | regex_replace('x86_64', 'amd64') }}.tar.gz"
-    dest: "/tmp/helm-v{{ helm_version | default('3.12.0') }}.tar.gz"
+    url: "https://get.helm.sh/helm-v{{ _helm_version }}-linux-{{ ansible_architecture | regex_replace('x86_64', 'amd64') }}.tar.gz"
+    dest: "/tmp/helm-v{{ _helm_version }}.tar.gz"
     mode: '0644'
+  become: true # Download to a system temporary directory
+  # Only download if not installed or if installed version doesn't match desired version
+  when: helm_installed_check.rc != 0 or _helm_version not in helm_installed_check.stdout
+  tags:
+    - devops
+    - helm
+
+- name: Create temporary directory for Helm extraction
+  ansible.builtin.file:
+    path: "/tmp/helm_extract_{{ ansible_process_id }}" # Unique temp dir
+    state: directory
+    mode: '0755'
   become: true
   tags:
     - devops
     - helm
 
-- name: Extract Helm
+- name: Extract Helm tarball to temporary directory
   ansible.builtin.unarchive:
-    src: "/tmp/helm-v{{ helm_version | default('3.12.0') }}.tar.gz"
-    dest: /tmp
-    remote_src: yes
-  become: true
+    src: "/tmp/helm-v{{ _helm_version }}.tar.gz"
+    dest: "/tmp/helm_extract_{{ ansible_process_id }}"
+    remote_src: yes # Source is on the remote machine's /tmp
+  become: true # Requires root to extract
+  # Only extract if not installed or if installed version doesn't match desired version
+  when: helm_installed_check.rc != 0 or _helm_version not in helm_installed_check.stdout
   tags:
     - devops
     - helm
 
 - name: Move Helm binary to /usr/local/bin
   ansible.builtin.copy:
-    src: "/tmp/linux-{{ ansible_architecture | regex_replace('x86_64', 'amd64') }}/helm"
+    src: "/tmp/helm_extract_{{ ansible_process_id }}/linux-{{ ansible_architecture | regex_replace('x86_64', 'amd64') }}/helm"
     dest: /usr/local/bin/helm
     mode: '0755'
-    remote_src: yes
+    remote_src: yes # Source is on the remote machine's temp dir
+  become: true # Requires root to move to /usr/local/bin
+  # Only move if not installed or if installed version doesn't match desired version
+  when: helm_installed_check.rc != 0 or _helm_version not in helm_installed_check.stdout
+  tags:
+    - devops
+    - helm
+
+- name: Clean up Helm tarball and temporary extraction directory
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - "/tmp/helm-v{{ _helm_version }}.tar.gz"
+    - "/tmp/helm_extract_{{ ansible_process_id }}"
   become: true
   tags:
     - devops

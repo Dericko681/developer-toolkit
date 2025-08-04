@@ -1,21 +1,71 @@
 ---
-# Install K9s
-- name: Download K9s
-  ansible.builtin.get_url:
-    url: "https://github.com/derailed/k9s/releases/download/v{{ k9s_version | default('0.32.5') }}/k9s_Linux_{{ ansible_architecture | regex_replace('x86_64', 'amd64') }}.tar.gz"
-    dest: "/tmp/k9s_v{{ k9s_version | default('0.32.5') }}.tar.gz"
-    mode: '0644'
-  become: true
+# Install K9s (Kubernetes CLI TUI).
+# Supports specific versions or fetches the latest release.
+
+- name: Determine desired K9s version
+  ansible.builtin.set_fact:
+    _k9s_version: "{{ k9s_version | default('latest') }}"
   tags:
     - devops
     - k9s
 
-- name: Extract K9s
+- name: Get latest K9s release version if 'latest' is requested
+  ansible.builtin.uri:
+    url: "https://api.github.com/repos/derailed/k9s/releases/latest"
+    return_content: true
+    method: GET
+  register: k9s_latest_release
+  when: _k9s_version == 'latest'
+  tags:
+    - devops
+    - k9s
+
+- name: Set _k9s_version to actual latest release tag
+  ansible.builtin.set_fact:
+    _k9s_version: "{{ k9s_latest_release.json.tag_name | regex_replace('v','') }}" # Remove 'v' prefix
+  when: _k9s_version == 'latest'
+  tags:
+    - devops
+    - k9s
+
+- name: Check if desired K9s version is already installed
+  ansible.builtin.command: "k9s version --short"
+  register: k9s_installed_check
+  failed_when: false
+  changed_when: false
+  tags:
+    - devops
+    - k9s
+
+- name: Download K9s tarball
+  ansible.builtin.get_url:
+    url: "https://github.com/derailed/k9s/releases/download/v{{ _k9s_version }}/k9s_Linux_{{ ansible_architecture | regex_replace('x86_64', 'amd64') }}.tar.gz"
+    dest: "/tmp/k9s_v{{ _k9s_version }}.tar.gz"
+    mode: '0644'
+  become: true # Download to a system temporary directory
+  # Only download if not installed or if installed version doesn't match desired version
+  when: k9s_installed_check.rc != 0 or _k9s_version not in k9s_installed_check.stdout
+  tags:
+    - devops
+    - k9s
+
+- name: Extract K9s binary to /usr/local/bin
   ansible.builtin.unarchive:
-    src: "/tmp/k9s_v{{ k9s_version | default('0.32.5') }}.tar.gz"
+    src: "/tmp/k9s_v{{ _k9s_version }}.tar.gz"
     dest: /usr/local/bin
-    remote_src: yes
-    creates: /usr/local/bin/k9s
+    remote_src: yes # Source is on the remote machine's /tmp
+    creates: /usr/local/bin/k9s # Idempotency check: creates this binary
+  become: true # Requires root to extract to /usr/local/bin
+  # Only extract if not installed or if installed version doesn't match desired version
+  when: k9s_installed_check.rc != 0 or _k9s_version not in k9s_installed_check.stdout
+  tags:
+    - devops
+    - k9s
+
+- name: Clean up K9s tarball
+  ansible.builtin.file:
+    path: "/tmp/k9s_v{{ _k9s_version }}.tar.gz"
+    state: absent
   become: true
   tags:
     - devops

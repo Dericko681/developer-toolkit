@@ -1,609 +1,910 @@
 ---
-# Prompt user for tool installation preferences and set facts for playbook execution
-- name: Display Welcome Message and Instructions
+# This role interactively prompts the user for installation preferences,
+# organized by major categories, and sets corresponding facts.
+# These facts control which other roles are executed in the main playbook.
+
+# --- SECTION: Global Preferences ---
+- name: Prompt for global settings section
   ansible.builtin.debug:
-    msg: |
-      =====================================================================
-      Welcome to the Developer Toolkit Provisioner!
-      This playbook sets up a development environment on Ubuntu 20.04/22.04.
-      You will be prompted to choose tools to install, grouped by category.
-      Enter 'y' for Yes or 'n' for No for each tool.
-      Invalid inputs (anything other than 'y' or 'n') will be treated as 'n'.
-      You have 5 minutes per prompt. Press Enter to skip (defaults to 'n').
-      =====================================================================
-      Press Ctrl+C to cancel or wait to proceed...
+    msg: "--- Global Installation Preferences ---"
   tags:
     - prompt
     - always
 
-# Initialize installation preferences
-- name: Initialize installation preferences
-  ansible.builtin.set_fact:
-    install_zsh_plugins: "{{ 'false' }}"
-    install_rust: "{{ 'false' }}"
-    install_java: "{{ 'false' }}"
-    install_go: "{{ 'false' }}"
-    install_nodejs: "{{ 'false' }}"
-    install_python: "{{ 'false' }}"
-    install_terraform: "{{ 'false' }}"
-    install_k8s_cli: "{{ 'false' }}"
-    install_k9s: "{{ 'false' }}"
-    install_k3s_cli: "{{ 'false' }}"
-    install_ansible_cli: "{{ 'false' }}"
-    install_ollama: "{{ 'false' }}"
-    install_minio_client: "{{ 'false' }}"
-    install_argocd_cli: "{{ 'false' }}"
-    install_jenkins_cli: "{{ 'false' }}"
-    install_helm: "{{ 'false' }}"
-    install_huggingface_cli: "{{ 'false' }}"
-    install_jupyterlab: "{{ 'false' }}"
-    install_pytorch: "{{ 'false' }}"
-    install_tensorflow: "{{ 'false' }}"
-    install_db_clients: "{{ 'false' }}"
-    install_postgresql_server: "{{ 'false' }}"
-    install_aws_cli: "{{ 'false' }}"
-    install_gemini_cli: "{{ 'false' }}"
-    install_ide_editors: "{{ 'false' }}"
-    install_version_control: "{{ 'false' }}"
-    install_containerization: "{{ 'false' }}"
-    install_cli_tools: "{{ 'false' }}"
-  run_once: true
-  tags:
-    - prompt
-    - always
+# Example of a global prompt if you had one, e.g., default shell
+# - name: Ask for default shell
+#   ansible.builtin.pause:
+#     prompt: "Which shell do you prefer (bash/zsh)? (bash)"
+#     default: "bash"
+#   register: preferred_shell_input
+#   tags:
+#     - prompt
+#     - always
+# - name: Set fact for preferred shell
+#   ansible.builtin.set_fact:
+#     preferred_shell: "{{ preferred_shell_input.user_input | default('bash') }}"
+#   tags:
+#     - prompt
+#     - always
 
-# --- Base System ---
-- name: "SECTION: Base System"
-  ansible.builtin.debug:
-    msg: "--- Configuring Base System ---"
+
+# --- SECTION: Base System ---
+- name: Prompt to configure Base System tools
+  ansible.builtin.pause:
+    prompt: "Do you want to configure Base System tools (e.g., Oh My Zsh plugins)? (y/N)"
+    echo: yes
+  register: install_category_base_system_input
   tags:
     - prompt
     - base-system
 
-- name: Prompt for Oh My Zsh plugins
-  ansible.builtin.vars_prompt:
-    name: zsh_plugins_input
-    prompt: "Install Oh My Zsh plugins (syntax highlighting, autocompletion) (y/n)?"
-    default: "n"
-    private: no
-    timeout: 300
-  tags:
-    - prompt
-    - base-system
-- name: Set fact for Oh My Zsh plugins
+- name: Set fact for Base System category preference
   ansible.builtin.set_fact:
-    install_zsh_plugins: "{{ 'true' if zsh_plugins_input | lower == 'y' else 'false' }}"
+    install_category_base_system: "{{ 'true' if install_category_base_system_input.user_input | default('n') | lower == 'y' else 'false' }}"
   tags:
     - prompt
     - base-system
 
-# --- Programming Languages & Runtimes ---
-- name: "SECTION: Programming Languages & Runtimes"
-  ansible.builtin.debug:
-    msg: "--- Configuring Programming Languages & Runtimes ---"
+- name: Prompt for Oh My Zsh plugins if Base System is selected
+  ansible.builtin.pause:
+    prompt: "Install Oh My Zsh plugins? (y/N)"
+    echo: yes
+  register: zsh_plugins_input_result
+  when: install_category_base_system | bool
+  tags:
+    - prompt
+    - base-system
+
+- name: Set fact for Oh My Zsh plugins installation preference (if category selected)
+  ansible.builtin.set_fact:
+    install_zsh_plugins: "{{ 'true' if zsh_plugins_input_result.user_input | default('n') | lower == 'y' else 'false' }}"
+  when: install_category_base_system | bool
+  tags:
+    - prompt
+    - base-system
+
+# --- FIX: Ensure variable is always defined even if category skipped ---
+- name: Set default fact for Oh My Zsh plugins installation preference (if category skipped)
+  ansible.builtin.set_fact:
+    install_zsh_plugins: "false"
+  when: not (install_category_base_system | bool)
+  tags:
+    - prompt
+    - base-system
+
+
+# --- SECTION: Programming Languages & Runtimes ---
+- name: Prompt to configure Programming Languages & Runtimes
+  ansible.builtin.pause:
+    prompt: "Do you want to install Programming Languages & Runtimes (e.g., Rust, Java, Python)? (y/N)"
+    echo: yes
+  register: install_category_programming_input
   tags:
     - prompt
     - programming
 
-- name: Prompt for Rust installation
-  ansible.builtin.vars_prompt:
-    name: rust_input
-    prompt: "Install Rust (y/n)?"
-    default: "n"
-    private: no
-    timeout: 300
-  tags:
-    - prompt
-    - programming
-- name: Set fact for Rust installation
+- name: Set fact for Programming Languages category preference
   ansible.builtin.set_fact:
-    install_rust: "{{ 'true' if rust_input | lower == 'y' else 'false' }}"
+    install_category_programming: "{{ 'true' if install_category_programming_input.user_input | default('n') | lower == 'y' else 'false' }}"
   tags:
     - prompt
     - programming
 
-- name: Prompt for Java installation
-  ansible.builtin.vars_prompt:
-    name: java_input
-    prompt: "Install Java (y/n)?"
-    default: "n"
-    private: no
-    timeout: 300
-  tags:
-    - prompt
-    - programming
-- name: Set fact for Java installation
-  ansible.builtin.set_fact:
-    install_java: "{{ 'true' if java_input | lower == 'y' else 'false' }}"
+- name: Prompt for Rust installation if Programming Languages is selected
+  ansible.builtin.pause:
+    prompt: "Install Rust? (y/N)"
+    echo: yes
+  register: rust_input_result
+  when: install_category_programming | bool
   tags:
     - prompt
     - programming
 
-- name: Prompt for Go installation
-  ansible.builtin.vars_prompt:
-    name: go_input
-    prompt: "Install Go (y/n)?"
-    default: "n"
-    private: no
-    timeout: 300
+- name: Set fact for Rust installation preference (if category selected)
+  ansible.builtin.set_fact:
+    install_rust: "{{ 'true' if rust_input_result.user_input | default('n') | lower == 'y' else 'false' }}"
+  when: install_category_programming | bool
   tags:
     - prompt
     - programming
-- name: Set fact for Go installation
+- name: Set default fact for Rust installation preference (if category skipped)
   ansible.builtin.set_fact:
-    install_go: "{{ 'true' if go_input | lower == 'y' else 'false' }}"
+    install_rust: "false"
+  when: not (install_category_programming | bool)
   tags:
     - prompt
     - programming
 
-- name: Prompt for Node.js installation
-  ansible.builtin.vars_prompt:
-    name: nodejs_input
-    prompt: "Install Node.js (y/n)?"
-    default: "n"
-    private: no
-    timeout: 300
-  tags:
-    - prompt
-    - programming
-- name: Set fact for Node.js installation
-  ansible.builtin.set_fact:
-    install_nodejs: "{{ 'true' if nodejs_input | lower == 'y' else 'false' }}"
+- name: Prompt for Java installation if Programming Languages is selected
+  ansible.builtin.pause:
+    prompt: "Install Java? (y/N)"
+    echo: yes
+  register: java_input_result
+  when: install_category_programming | bool
   tags:
     - prompt
     - programming
 
-- name: Prompt for Python installation
-  ansible.builtin.vars_prompt:
-    name: python_input
-    prompt: "Install Python (y/n)?"
-    default: "n"
-    private: no
-    timeout: 300
+- name: Set fact for Java installation preference (if category selected)
+  ansible.builtin.set_fact:
+    install_java: "{{ 'true' if java_input_result.user_input | default('n') | lower == 'y' else 'false' }}"
+  when: install_category_programming | bool
   tags:
     - prompt
     - programming
-- name: Set fact for Python installation
+- name: Set default fact for Java installation preference (if category skipped)
   ansible.builtin.set_fact:
-    install_python: "{{ 'true' if python_input | lower == 'y' else 'false' }}"
+    install_java: "false"
+  when: not (install_category_programming | bool)
   tags:
     - prompt
     - programming
 
-# --- DevOps & Cloud Native Tools ---
-- name: "SECTION: DevOps & Cloud Native Tools"
-  ansible.builtin.debug:
-    msg: "--- Configuring DevOps & Cloud Native Tools ---"
+- name: Prompt for Go installation if Programming Languages is selected
+  ansible.builtin.pause:
+    prompt: "Install Go? (y/N)"
+    echo: yes
+  register: go_input_result
+  when: install_category_programming | bool
   tags:
     - prompt
-    - devops
+    - programming
 
-- name: Prompt for Terraform installation
-  ansible.builtin.vars_prompt:
-    name: terraform_input
-    prompt: "Install Terraform (y/n)?"
-    default: "n"
-    private: no
-    timeout: 300
-  tags:
-    - prompt
-    - devops
-- name: Set fact for Terraform installation
+- name: Set fact for Go installation preference (if category selected)
   ansible.builtin.set_fact:
-    install_terraform: "{{ 'true' if terraform_input | lower == 'y' else 'false' }}"
+    install_go: "{{ 'true' if go_input_result.user_input | default('n') | lower == 'y' else 'false' }}"
+  when: install_category_programming | bool
   tags:
     - prompt
-    - devops
-
-- name: Prompt for Kubernetes CLI (kubectl) installation
-  ansible.builtin.vars_prompt:
-    name: k8s_cli_input
-    prompt: "Install Kubernetes CLI (kubectl) (y/n)?"
-    default: "n"
-    private: no
-    timeout: 300
-  tags:
-    - prompt
-    - devops
-- name: Set fact for Kubernetes CLI installation
+    - programming
+- name: Set default fact for Go installation preference (if category skipped)
   ansible.builtin.set_fact:
-    install_k8s_cli: "{{ 'true' if k8s_cli_input | lower == 'y' else 'false' }}"
+    install_go: "false"
+  when: not (install_category_programming | bool)
   tags:
     - prompt
-    - devops
+    - programming
 
-- name: Prompt for K9s installation
-  ansible.builtin.vars_prompt:
-    name: k9s_input
-    prompt: "Install K9s (y/n)?"
-    default: "n"
-    private: no
-    timeout: 300
+- name: Prompt for Node.js installation if Programming Languages is selected
+  ansible.builtin.pause:
+    prompt: "Install Node.js? (y/N)"
+    echo: yes
+  register: nodejs_input_result
+  when: install_category_programming | bool
   tags:
     - prompt
-    - devops
-- name: Set fact for K9s installation
+    - programming
+
+- name: Set fact for Node.js installation preference (if category selected)
   ansible.builtin.set_fact:
-    install_k9s: "{{ 'true' if k9s_input | lower == 'y' else 'false' }}"
+    install_nodejs: "{{ 'true' if nodejs_input_result.user_input | default('n') | lower == 'y' else 'false' }}"
+  when: install_category_programming | bool
   tags:
     - prompt
-    - devops
-
-- name: Prompt for K3s client tools installation
-  ansible.builtin.vars_prompt:
-    name: k3s_cli_input
-    prompt: "Install K3s client tools (y/n)?"
-    default: "n"
-    private: no
-    timeout: 300
-  tags:
-    - prompt
-    - devops
-- name: Set fact for K3s client tools installation
+    - programming
+- name: Set default fact for Node.js installation preference (if category skipped)
   ansible.builtin.set_fact:
-    install_k3s_cli: "{{ 'true' if k3s_cli_input | lower == 'y' else 'false' }}"
+    install_nodejs: "false"
+  when: not (install_category_programming | bool)
   tags:
     - prompt
-    - devops
+    - programming
 
-- name: Prompt for Ansible CLI installation
-  ansible.builtin.vars_prompt:
-    name: ansible_cli_input
-    prompt: "Install Ansible CLI (y/n)?"
-    default: "n"
-    private: no
-    timeout: 300
+- name: Prompt for Python installation if Programming Languages is selected
+  ansible.builtin.pause:
+    prompt: "Install Python? (y/N)"
+    echo: yes
+  register: python_input_result
+  when: install_category_programming | bool
   tags:
     - prompt
-    - devops
-- name: Set fact for Ansible CLI installation
+    - programming
+
+- name: Set fact for Python installation preference (if category selected)
   ansible.builtin.set_fact:
-    install_ansible_cli: "{{ 'true' if ansible_cli_input | lower == 'y' else 'false' }}"
+    install_python: "{{ 'true' if python_input_result.user_input | default('n') | lower == 'y' else 'false' }}"
+  when: install_category_programming | bool
   tags:
     - prompt
-    - devops
-
-- name: Prompt for Ollama installation
-  ansible.builtin.vars_prompt:
-    name: ollama_input
-    prompt: "Install Ollama (y/n)?"
-    default: "n"
-    private: no
-    timeout: 300
-  tags:
-    - prompt
-    - devops
-- name: Set fact for Ollama installation
+    - programming
+- name: Set default fact for Python installation preference (if category skipped)
   ansible.builtin.set_fact:
-    install_ollama: "{{ 'true' if ollama_input | lower == 'y' else 'false' }}"
+    install_python: "false"
+  when: not (install_category_programming | bool)
+  tags:
+    - prompt
+    - programming
+
+
+# --- SECTION: DevOps & Cloud Native Tools ---
+- name: Prompt to configure DevOps & Cloud Native Tools
+  ansible.builtin.pause:
+    prompt: "Do you want to install DevOps & Cloud Native Tools (e.g., Terraform, K8s CLI, Helm)? (y/N)"
+    echo: yes
+  register: install_category_devops_input
   tags:
     - prompt
     - devops
 
-- name: Prompt for MinIO Client installation
-  ansible.builtin.vars_prompt:
-    name: minio_client_input
-    prompt: "Install MinIO Client (y/n)?"
-    default: "n"
-    private: no
-    timeout: 300
-  tags:
-    - prompt
-    - devops
-- name: Set fact for MinIO Client installation
+- name: Set fact for DevOps & Cloud Native category preference
   ansible.builtin.set_fact:
-    install_minio_client: "{{ 'true' if minio_client_input | lower == 'y' else 'false' }}"
+    install_category_devops: "{{ 'true' if install_category_devops_input.user_input | default('n') | lower == 'y' else 'false' }}"
   tags:
     - prompt
     - devops
 
-- name: Prompt for Argo CD CLI installation
-  ansible.builtin.vars_prompt:
-    name: argocd_cli_input
-    prompt: "Install Argo CD CLI (y/n)?"
-    default: "n"
-    private: no
-    timeout: 300
+- name: Prompt for Terraform installation if DevOps is selected
+  ansible.builtin.pause:
+    prompt: "Install Terraform? (y/N)"
+    echo: yes
+  register: terraform_input_result
+  when: install_category_devops | bool
   tags:
     - prompt
     - devops
-- name: Set fact for Argo CD CLI installation
+
+- name: Set fact for Terraform installation preference (if category selected)
   ansible.builtin.set_fact:
-    install_argocd_cli: "{{ 'true' if argocd_cli_input | lower == 'y' else 'false' }}"
+    install_terraform: "{{ 'true' if terraform_input_result.user_input | default('n') | lower == 'y' else 'false' }}"
+  when: install_category_devops | bool
   tags:
     - prompt
     - devops
-
-- name: Prompt for Jenkins CLI installation
-  ansible.builtin.vars_prompt:
-    name: jenkins_cli_input
-    prompt: "Install Jenkins CLI (y/n)?"
-    default: "n"
-    private: no
-    timeout: 300
-  tags:
-    - prompt
-    - devops
-- name: Set fact for Jenkins CLI installation
+- name: Set default fact for Terraform installation preference (if category skipped)
   ansible.builtin.set_fact:
-    install_jenkins_cli: "{{ 'true' if jenkins_cli_input | lower == 'y' else 'false' }}"
+    install_terraform: "false"
+  when: not (install_category_devops | bool)
   tags:
     - prompt
     - devops
 
-- name: Prompt for Helm installation
-  ansible.builtin.vars_prompt:
-    name: helm_input
-    prompt: "Install Helm (y/n)?"
-    default: "n"
-    private: no
-    timeout: 300
+- name: Prompt for Kubernetes CLI (kubectl) installation if DevOps is selected
+  ansible.builtin.pause:
+    prompt: "Install Kubernetes CLI (kubectl)? (y/N)"
+    echo: yes
+  register: k8s_cli_input_result
+  when: install_category_devops | bool
   tags:
     - prompt
     - devops
-- name: Set fact for Helm installation
+
+- name: Set fact for Kubernetes CLI installation preference (if category selected)
   ansible.builtin.set_fact:
-    install_helm: "{{ 'true' if helm_input | lower == 'y' else 'false' }}"
+    install_k8s_cli: "{{ 'true' if k8s_cli_input_result.user_input | default('n') | lower == 'y' else 'false' }}"
+  when: install_category_devops | bool
+  tags:
+    - prompt
+    - devops
+- name: Set default fact for Kubernetes CLI installation preference (if category skipped)
+  ansible.builtin.set_fact:
+    install_k8s_cli: "false"
+  when: not (install_category_devops | bool)
   tags:
     - prompt
     - devops
 
-# --- AI/ML/Data Science Tools ---
-- name: "SECTION: AI/ML/Data Science Tools"
-  ansible.builtin.debug:
-    msg: "--- Configuring AI/ML/Data Science Tools ---"
+- name: Prompt for K9s installation if DevOps is selected
+  ansible.builtin.pause:
+    prompt: "Install K9s? (y/N)"
+    echo: yes
+  register: k9s_input_result
+  when: install_category_devops | bool
+  tags:
+    - prompt
+    - devops
+
+- name: Set fact for K9s installation preference (if category selected)
+  ansible.builtin.set_fact:
+    install_k9s: "{{ 'true' if k9s_input_result.user_input | default('n') | lower == 'y' else 'false' }}"
+  when: install_category_devops | bool
+  tags:
+    - prompt
+    - devops
+- name: Set default fact for K9s installation preference (if category skipped)
+  ansible.builtin.set_fact:
+    install_k9s: "false"
+  when: not (install_category_devops | bool)
+  tags:
+    - prompt
+    - devops
+
+- name: Prompt for K3s client tools installation if DevOps is selected
+  ansible.builtin.pause:
+    prompt: "Install K3s client tools? (y/N)"
+    echo: yes
+  register: k3s_cli_input_result
+  when: install_category_devops | bool
+  tags:
+    - prompt
+    - devops
+
+- name: Set fact for K3s client tools installation preference (if category selected)
+  ansible.builtin.set_fact:
+    install_k3s_cli: "{{ 'true' if k3s_cli_input_result.user_input | default('n') | lower == 'y' else 'false' }}"
+  when: install_category_devops | bool
+  tags:
+    - prompt
+    - devops
+- name: Set default fact for K3s client tools installation preference (if category skipped)
+  ansible.builtin.set_fact:
+    install_k3s_cli: "false"
+  when: not (install_category_devops | bool)
+  tags:
+    - prompt
+    - devops
+
+- name: Prompt for Ansible CLI installation if DevOps is selected
+  ansible.builtin.pause:
+    prompt: "Install Ansible CLI? (y/N)"
+    echo: yes
+  register: ansible_cli_input_result
+  when: install_category_devops | bool
+  tags:
+    - prompt
+    - devops
+
+- name: Set fact for Ansible CLI installation preference (if category selected)
+  ansible.builtin.set_fact:
+    install_ansible_cli: "{{ 'true' if ansible_cli_input_result.user_input | default('n') | lower == 'y' else 'false' }}"
+  when: install_category_devops | bool
+  tags:
+    - prompt
+    - devops
+- name: Set default fact for Ansible CLI installation preference (if category skipped)
+  ansible.builtin.set_fact:
+    install_ansible_cli: "false"
+  when: not (install_category_devops | bool)
+  tags:
+    - prompt
+    - devops
+
+- name: Prompt for Ollama installation if DevOps is selected
+  ansible.builtin.pause:
+    prompt: "Install Ollama? (y/N)"
+    echo: yes
+  register: ollama_input_result
+  when: install_category_devops | bool
+  tags:
+    - prompt
+    - devops
+
+- name: Set fact for Ollama installation preference (if category selected)
+  ansible.builtin.set_fact:
+    install_ollama: "{{ 'true' if ollama_input_result.user_input | default('n') | lower == 'y' else 'false' }}"
+  when: install_category_devops | bool
+  tags:
+    - prompt
+    - devops
+- name: Set default fact for Ollama installation preference (if category skipped)
+  ansible.builtin.set_fact:
+    install_ollama: "false"
+  when: not (install_category_devops | bool)
+  tags:
+    - prompt
+    - devops
+
+- name: Prompt for MinIO Client installation if DevOps is selected
+  ansible.builtin.pause:
+    prompt: "Install MinIO Client? (y/N)"
+    echo: yes
+  register: minio_client_input_result
+  when: install_category_devops | bool
+  tags:
+    - prompt
+    - devops
+
+- name: Set fact for MinIO Client installation preference (if category selected)
+  ansible.builtin.set_fact:
+    install_minio_client: "{{ 'true' if minio_client_input_result.user_input | default('n') | lower == 'y' else 'false' }}"
+  when: install_category_devops | bool
+  tags:
+    - prompt
+    - devops
+- name: Set default fact for MinIO Client installation preference (if category skipped)
+  ansible.builtin.set_fact:
+    install_minio_client: "false"
+  when: not (install_category_devops | bool)
+  tags:
+    - prompt
+    - devops
+
+- name: Prompt for Argo CD CLI installation if DevOps is selected
+  ansible.builtin.pause:
+    prompt: "Install Argo CD CLI? (y/N)"
+    echo: yes
+  register: argocd_cli_input_result
+  when: install_category_devops | bool
+  tags:
+    - prompt
+    - devops
+
+- name: Set fact for Argo CD CLI installation preference (if category selected)
+  ansible.builtin.set_fact:
+    install_argocd_cli: "{{ 'true' if argocd_cli_input_result.user_input | default('n') | lower == 'y' else 'false' }}"
+  when: install_category_devops | bool
+  tags:
+    - prompt
+    - devops
+- name: Set default fact for Argo CD CLI installation preference (if category skipped)
+  ansible.builtin.set_fact:
+    install_argocd_cli: "false"
+  when: not (install_category_devops | bool)
+  tags:
+    - prompt
+    - devops
+
+- name: Prompt for Jenkins CLI installation if DevOps is selected
+  ansible.builtin.pause:
+    prompt: "Install Jenkins CLI? (y/N)"
+    echo: yes
+  register: jenkins_cli_input_result
+  when: install_category_devops | bool
+  tags:
+    - prompt
+    - devops
+
+- name: Set fact for Jenkins CLI installation preference (if category selected)
+  ansible.builtin.set_fact:
+    install_jenkins_cli: "{{ 'true' if jenkins_cli_input_result.user_input | default('n') | lower == 'y' else 'false' }}"
+  when: install_category_devops | bool
+  tags:
+    - prompt
+    - devops
+- name: Set default fact for Jenkins CLI installation preference (if category skipped)
+  ansible.builtin.set_fact:
+    install_jenkins_cli: "false"
+  when: not (install_category_devops | bool)
+  tags:
+    - prompt
+    - devops
+
+- name: Prompt for Helm installation if DevOps is selected
+  ansible.builtin.pause:
+    prompt: "Install Helm? (y/N)"
+    echo: yes
+  register: helm_input_result
+  when: install_category_devops | bool
+  tags:
+    - prompt
+    - devops
+
+- name: Set fact for Helm installation preference (if category selected)
+  ansible.builtin.set_fact:
+    install_helm: "{{ 'true' if helm_input_result.user_input | default('n') | lower == 'y' else 'false' }}"
+  when: install_category_devops | bool
+  tags:
+    - prompt
+    - devops
+- name: Set default fact for Helm installation preference (if category skipped)
+  ansible.builtin.set_fact:
+    install_helm: "false"
+  when: not (install_category_devops | bool)
+  tags:
+    - prompt
+    - devops
+
+
+# --- SECTION: AI/ML/Data Science Tools ---
+- name: Prompt to configure AI/ML/Data Science Tools
+  ansible.builtin.pause:
+    prompt: "Do you want to install AI/ML/Data Science Tools (e.g., Hugging Face, JupyterLab)? (y/N)"
+    echo: yes
+  register: install_category_ai_ml_input
   tags:
     - prompt
     - ai-ml
 
-- name: Prompt for Hugging Face CLI installation
-  ansible.builtin.vars_prompt:
-    name: huggingface_cli_input
-    prompt: "Install Hugging Face CLI (y/n)?"
-    default: "n"
-    private: no
-    timeout: 300
-  tags:
-    - prompt
-    - ai-ml
-- name: Set fact for Hugging Face CLI installation
+- name: Set fact for AI/ML/Data Science category preference
   ansible.builtin.set_fact:
-    install_huggingface_cli: "{{ 'true' if huggingface_cli_input | lower == 'y' else 'false' }}"
+    install_category_ai_ml: "{{ 'true' if install_category_ai_ml_input.user_input | default('n') | lower == 'y' else 'false' }}"
   tags:
     - prompt
     - ai-ml
 
-- name: Prompt for JupyterLab installation
-  ansible.builtin.vars_prompt:
-    name: jupyterlab_input
-    prompt: "Install JupyterLab (y/n)?"
-    default: "n"
-    private: no
-    timeout: 300
-  tags:
-    - prompt
-    - ai-ml
-- name: Set fact for JupyterLab installation
-  ansible.builtin.set_fact:
-    install_jupyterlab: "{{ 'true' if jupyterlab_input | lower == 'y' else 'false' }}"
+- name: Prompt for Hugging Face CLI installation if AI/ML is selected
+  ansible.builtin.pause:
+    prompt: "Install Hugging Face CLI? (y/N)"
+    echo: yes
+  register: huggingface_cli_input_result
+  when: install_category_ai_ml | bool
   tags:
     - prompt
     - ai-ml
 
-- name: Prompt for PyTorch installation
-  ansible.builtin.vars_prompt:
-    name: pytorch_input
-    prompt: "Install PyTorch (y/n)?"
-    default: "n"
-    private: no
-    timeout: 300
+- name: Set fact for Hugging Face CLI installation preference (if category selected)
+  ansible.builtin.set_fact:
+    install_huggingface_cli: "{{ 'true' if huggingface_cli_input_result.user_input | default('n') | lower == 'y' else 'false' }}"
+  when: install_category_ai_ml | bool
   tags:
     - prompt
     - ai-ml
-- name: Set fact for PyTorch installation
+- name: Set default fact for Hugging Face CLI installation preference (if category skipped)
   ansible.builtin.set_fact:
-    install_pytorch: "{{ 'true' if pytorch_input | lower == 'y' else 'false' }}"
+    install_huggingface_cli: "false"
+  when: not (install_category_ai_ml | bool)
   tags:
     - prompt
     - ai-ml
 
-- name: Prompt for TensorFlow installation
-  ansible.builtin.vars_prompt:
-    name: tensorflow_input
-    prompt: "Install TensorFlow (y/n)?"
-    default: "n"
-    private: no
-    timeout: 300
-  tags:
-    - prompt
-    - ai-ml
-- name: Set fact for TensorFlow installation
-  ansible.builtin.set_fact:
-    install_tensorflow: "{{ 'true' if tensorflow_input | lower == 'y' else 'false' }}"
+- name: Prompt for JupyterLab installation if AI/ML is selected
+  ansible.builtin.pause:
+    prompt: "Install JupyterLab? (y/N)"
+    echo: yes
+  register: jupyterlab_input_result
+  when: install_category_ai_ml | bool
   tags:
     - prompt
     - ai-ml
 
-# --- Database Tools ---
-- name: "SECTION: Database Tools"
-  ansible.builtin.debug:
-    msg: "--- Configuring Database Tools ---"
+- name: Set fact for JupyterLab installation preference (if category selected)
+  ansible.builtin.set_fact:
+    install_jupyterlab: "{{ 'true' if jupyterlab_input_result.user_input | default('n') | lower == 'y' else 'false' }}"
+  when: install_category_ai_ml | bool
+  tags:
+    - prompt
+    - ai-ml
+- name: Set default fact for JupyterLab installation preference (if category skipped)
+  ansible.builtin.set_fact:
+    install_jupyterlab: "false"
+  when: not (install_category_ai_ml | bool)
+  tags:
+    - prompt
+    - ai-ml
+
+- name: Prompt for PyTorch installation if AI/ML is selected
+  ansible.builtin.pause:
+    prompt: "Install PyTorch? (y/N)"
+    echo: yes
+  register: pytorch_input_result
+  when: install_category_ai_ml | bool
+  tags:
+    - prompt
+    - ai-ml
+
+- name: Set fact for PyTorch installation preference (if category selected)
+  ansible.builtin.set_fact:
+    install_pytorch: "{{ 'true' if pytorch_input_result.user_input | default('n') | lower == 'y' else 'false' }}"
+  when: install_category_ai_ml | bool
+  tags:
+    - prompt
+    - ai-ml
+- name: Set default fact for PyTorch installation preference (if category skipped)
+  ansible.builtin.set_fact:
+    install_pytorch: "false"
+  when: not (install_category_ai_ml | bool)
+  tags:
+    - prompt
+    - ai-ml
+
+- name: Prompt for TensorFlow installation if AI/ML is selected
+  ansible.builtin.pause:
+    prompt: "Install TensorFlow? (y/N)"
+    echo: yes
+  register: tensorflow_input_result
+  when: install_category_ai_ml | bool
+  tags:
+    - prompt
+    - ai-ml
+
+- name: Set fact for TensorFlow installation preference (if category selected)
+  ansible.builtin.set_fact:
+    install_tensorflow: "{{ 'true' if tensorflow_input_result.user_input | default('n') | lower == 'y' else 'false' }}"
+  when: install_category_ai_ml | bool
+  tags:
+    - prompt
+    - ai-ml
+- name: Set default fact for TensorFlow installation preference (if category skipped)
+  ansible.builtin.set_fact:
+    install_tensorflow: "false"
+  when: not (install_category_ai_ml | bool)
+  tags:
+    - prompt
+    - ai-ml
+
+
+# --- SECTION: Database Tools ---
+- name: Prompt to configure Database Tools
+  ansible.builtin.pause:
+    prompt: "Do you want to install Database Tools (e.g., Clients, PostgreSQL Server)? (y/N)"
+    echo: yes
+  register: install_category_databases_input
   tags:
     - prompt
     - databases
 
-- name: Prompt for Database Clients installation
-  ansible.builtin.vars_prompt:
-    name: db_clients_input
-    prompt: "Install Database Clients (PostgreSQL, MySQL, Redis) (y/n)?"
-    default: "n"
-    private: no
-    timeout: 300
-  tags:
-    - prompt
-    - databases
-- name: Set fact for Database Clients installation
+- name: Set fact for Databases category preference
   ansible.builtin.set_fact:
-    install_db_clients: "{{ 'true' if db_clients_input | lower == 'y' else 'false' }}"
+    install_category_databases: "{{ 'true' if install_category_databases_input.user_input | default('n') | lower == 'y' else 'false' }}"
   tags:
     - prompt
     - databases
 
-- name: Prompt for PostgreSQL Server installation
-  ansible.builtin.vars_prompt:
-    name: postgresql_server_input
-    prompt: "Install PostgreSQL Server (y/n)?"
-    default: "n"
-    private: no
-    timeout: 300
-  tags:
-    - prompt
-    - databases
-- name: Set fact for PostgreSQL Server installation
-  ansible.builtin.set_fact:
-    install_postgresql_server: "{{ 'true' if postgresql_server_input | lower == 'y' else 'false' }}"
+- name: Prompt for Database Clients installation if Databases is selected
+  ansible.builtin.pause:
+    prompt: "Install Database Clients (e.g., DBeaver, TablePlus)? (y/N)"
+    echo: yes
+  register: db_clients_input_result
+  when: install_category_databases | bool
   tags:
     - prompt
     - databases
 
-# --- Cloud Provider CLIs ---
-- name: "SECTION: Cloud Provider CLIs"
-  ansible.builtin.debug:
-    msg: "--- Configuring Cloud Provider CLIs ---"
-  tags:
-    - prompt
-    - cloud-cli
-
-- name: Prompt for AWS CLI installation
-  ansible.builtin.vars_prompt:
-    name: aws_cli_input
-    prompt: "Install AWS CLI (y/n)?"
-    default: "n"
-    private: no
-    timeout: 300
-  tags:
-    - prompt
-    - cloud-cli
-- name: Set fact for AWS CLI installation
+- name: Set fact for Database Clients installation preference (if category selected)
   ansible.builtin.set_fact:
-    install_aws_cli: "{{ 'true' if aws_cli_input | lower == 'y' else 'false' }}"
+    install_db_clients: "{{ 'true' if db_clients_input_result.user_input | default('n') | lower == 'y' else 'false' }}"
+  when: install_category_databases | bool
   tags:
     - prompt
-    - cloud-cli
-
-- name: Prompt for Google Cloud SDK installation
-  ansible.builtin.vars_prompt:
-    name: gemini_cli_input
-    prompt: "Install Google Cloud SDK (gcloud) (y/n)?"
-    default: "n"
-    private: no
-    timeout: 300
-  tags:
-    - prompt
-    - cloud-cli
-- name: Set fact for Google Cloud SDK installation
+    - databases
+- name: Set default fact for Database Clients installation preference (if category skipped)
   ansible.builtin.set_fact:
-    install_gemini_cli: "{{ 'true' if gemini_cli_input | lower == 'y' else 'false' }}"
+    install_db_clients: "false"
+  when: not (install_category_databases | bool)
+  tags:
+    - prompt
+    - databases
+
+- name: Prompt for PostgreSQL Server installation if Databases is selected
+  ansible.builtin.pause:
+    prompt: "Install PostgreSQL Server? (y/N)"
+    echo: yes
+  register: postgresql_server_input_result
+  when: install_category_databases | bool
+  tags:
+    - prompt
+    - databases
+
+- name: Set fact for PostgreSQL Server installation preference (if category selected)
+  ansible.builtin.set_fact:
+    install_postgresql_server: "{{ 'true' if postgresql_server_input_result.user_input | default('n') | lower == 'y' else 'false' }}"
+  when: install_category_databases | bool
+  tags:
+    - prompt
+    - databases
+- name: Set default fact for PostgreSQL Server installation preference (if category skipped)
+  ansible.builtin.set_fact:
+    install_postgresql_server: "false"
+  when: not (install_category_databases | bool)
+  tags:
+    - prompt
+    - databases
+
+
+# --- SECTION: Cloud Provider CLIs ---
+- name: Prompt to configure Cloud Provider CLIs
+  ansible.builtin.pause:
+    prompt: "Do you want to install Cloud Provider CLIs (e.g., AWS, Google Cloud)? (y/N)"
+    echo: yes
+  register: install_category_cloud_cli_input
   tags:
     - prompt
     - cloud-cli
 
-# --- IDEs and Editors ---
-- name: "SECTION: IDEs and Editors"
-  ansible.builtin.debug:
-    msg: "--- Configuring IDEs and Editors ---"
+- name: Set fact for Cloud Provider CLIs category preference
+  ansible.builtin.set_fact:
+    install_category_cloud_cli: "{{ 'true' if install_category_cloud_cli_input.user_input | default('n') | lower == 'y' else 'false' }}"
+  tags:
+    - prompt
+    - cloud-cli
+
+- name: Prompt for AWS CLI installation if Cloud CLIs are selected
+  ansible.builtin.pause:
+    prompt: "Install AWS CLI? (y/N)"
+    echo: yes
+  register: aws_cli_input_result
+  when: install_category_cloud_cli | bool
+  tags:
+    - prompt
+    - cloud-cli
+
+- name: Set fact for AWS CLI installation preference (if category selected)
+  ansible.builtin.set_fact:
+    install_aws_cli: "{{ 'true' if aws_cli_input_result.user_input | default('n') | lower == 'y' else 'false' }}"
+  when: install_category_cloud_cli | bool
+  tags:
+    - prompt
+    - cloud-cli
+- name: Set default fact for AWS CLI installation preference (if category skipped)
+  ansible.builtin.set_fact:
+    install_aws_cli: "false"
+  when: not (install_category_cloud_cli | bool)
+  tags:
+    - prompt
+    - cloud-cli
+
+- name: Prompt for Google Cloud SDK (gcloud CLI) installation if Cloud CLIs are selected
+  ansible.builtin.pause:
+    prompt: "Install Google Cloud SDK (gcloud CLI)? (y/N)"
+    echo: yes
+  register: gemini_cli_input_result # Keeping original variable name for consistency with main.yml
+  when: install_category_cloud_cli | bool
+  tags:
+    - prompt
+    - cloud-cli
+
+- name: Set fact for Google Cloud SDK installation preference (if category selected)
+  ansible.builtin.set_fact:
+    install_gemini_cli: "{{ 'true' if gemini_cli_input_result.user_input | default('n') | lower == 'y' else 'false' }}"
+  when: install_category_cloud_cli | bool
+  tags:
+    - prompt
+    - cloud-cli
+- name: Set default fact for Google Cloud SDK installation preference (if category skipped)
+  ansible.builtin.set_fact:
+    install_gemini_cli: "false"
+  when: not (install_category_cloud_cli | bool)
+  tags:
+    - prompt
+    - cloud-cli
+
+
+# --- SECTION: IDEs and Editors ---
+- name: Prompt to configure IDEs and Editors
+  ansible.builtin.pause:
+    prompt: "Do you want to install IDEs and Editors (e.g., VS Code)? (y/N)"
+    echo: yes
+  register: install_category_ides_editors_input
   tags:
     - prompt
     - ide-editors
 
-- name: Prompt for VS Code installation
-  ansible.builtin.vars_prompt:
-    name: ide_editors_input
-    prompt: "Install VS Code (y/n)?"
-    default: "n"
-    private: no
-    timeout: 300
-  tags:
-    - prompt
-    - ide-editors
-- name: Set fact for VS Code installation
+- name: Set fact for IDEs and Editors category preference
   ansible.builtin.set_fact:
-    install_ide_editors: "{{ 'true' if ide_editors_input | lower == 'y' else 'false' }}"
+    install_category_ides_editors: "{{ 'true' if install_category_ides_editors_input.user_input | default('n') | lower == 'y' else 'false' }}"
   tags:
     - prompt
     - ide-editors
 
-# --- Version Control Tools ---
-- name: "SECTION: Version Control Tools"
-  ansible.builtin.debug:
-    msg: "--- Configuring Version Control Tools ---"
+- name: Prompt for VS Code installation if IDEs/Editors are selected
+  ansible.builtin.pause:
+    prompt: "Install VS Code? (y/N)"
+    echo: yes
+  register: ide_editors_input_result
+  when: install_category_ides_editors | bool
   tags:
     - prompt
-    - version-control
+    - ide-editors
 
-- name: Prompt for Version Control tools installation
-  ansible.builtin.vars_prompt:
-    name: version_control_input
-    prompt: "Install Version Control tools (e.g., Git) (y/n)?"
-    default: "n"
-    private: no
-    timeout: 300
-  tags:
-    - prompt
-    - version-control
-- name: Set fact for Version Control tools installation
+- name: Set fact for VS Code installation preference (if category selected)
   ansible.builtin.set_fact:
-    install_version_control: "{{ 'true' if version_control_input | lower == 'y' else 'false' }}"
+    install_ide_editors: "{{ 'true' if ide_editors_input_result.user_input | default('n') | lower == 'y' else 'false' }}"
+  when: install_category_ides_editors | bool
+  tags:
+    - prompt
+    - ide-editors
+- name: Set default fact for VS Code installation preference (if category skipped)
+  ansible.builtin.set_fact:
+    install_ide_editors: "false"
+  when: not (install_category_ides_editors | bool)
+  tags:
+    - prompt
+    - ide-editors
+
+
+# --- SECTION: Version Control Tools ---
+- name: Prompt to configure Version Control Tools
+  ansible.builtin.pause:
+    prompt: "Do you want to install Version Control Tools (e.g., Git, GitHub CLI)? (y/N)"
+    echo: yes
+  register: install_category_version_control_input
   tags:
     - prompt
     - version-control
 
-# --- Containerization Tools ---
-- name: "SECTION: Containerization Tools"
-  ansible.builtin.debug:
-    msg: "--- Configuring Containerization Tools ---"
-  tags:
-    - prompt
-    - containerization
-
-- name: Prompt for Containerization tools installation
-  ansible.builtin.vars_prompt:
-    name: containerization_input
-    prompt: "Install Containerization tools (e.g., Docker) (y/n)?"
-    default: "n"
-    private: no
-    timeout: 300
-  tags:
-    - prompt
-    - containerization
-- name: Set fact for Containerization tools installation
+- name: Set fact for Version Control category preference
   ansible.builtin.set_fact:
-    install_containerization: "{{ 'true' if containerization_input | lower == 'y' else 'false' }}"
+    install_category_version_control: "{{ 'true' if install_category_version_control_input.user_input | default('n') | lower == 'y' else 'false' }}"
+  tags:
+    - prompt
+    - version-control
+
+- name: Prompt for Version Control tools installation if Version Control is selected
+  ansible.builtin.pause:
+    prompt: "Install Version Control tools? (y/N)"
+    echo: yes
+  register: version_control_input_result
+  when: install_category_version_control | bool
+  tags:
+    - prompt
+    - version-control
+
+- name: Set fact for Version Control tools installation preference (if category selected)
+  ansible.builtin.set_fact:
+    install_version_control: "{{ 'true' if version_control_input_result.user_input | default('n') | lower == 'y' else 'false' }}"
+  when: install_category_version_control | bool
+  tags:
+    - prompt
+    - version-control
+- name: Set default fact for Version Control tools installation preference (if category skipped)
+  ansible.builtin.set_fact:
+    install_version_control: "false"
+  when: not (install_category_version_control | bool)
+  tags:
+    - prompt
+    - version-control
+
+
+# --- SECTION: Containerization Tools ---
+- name: Prompt to configure Containerization Tools
+  ansible.builtin.pause:
+    prompt: "Do you want to install Containerization Tools (e.g., Docker, Docker Compose)? (y/N)"
+    echo: yes
+  register: install_category_containerization_input
   tags:
     - prompt
     - containerization
 
-# --- CLI Tools ---
-- name: "SECTION: CLI Tools"
-  ansible.builtin.debug:
-    msg: "--- Configuring CLI Tools ---"
+- name: Set fact for Containerization category preference
+  ansible.builtin.set_fact:
+    install_category_containerization: "{{ 'true' if install_category_containerization_input.user_input | default('n') | lower == 'y' else 'false' }}"
+  tags:
+    - prompt
+    - containerization
+
+- name: Prompt for Containerization tools installation if Containerization is selected
+  ansible.builtin.pause:
+    prompt: "Install Containerization tools? (y/N)"
+    echo: yes
+  register: containerization_input_result
+  when: install_category_containerization | bool
+  tags:
+    - prompt
+    - containerization
+
+- name: Set fact for Containerization tools installation preference (if category selected)
+  ansible.builtin.set_fact:
+    install_containerization: "{{ 'true' if containerization_input_result.user_input | default('n') | lower == 'y' else 'false' }}"
+  when: install_category_containerization | bool
+  tags:
+    - prompt
+    - containerization
+- name: Set default fact for Containerization tools installation preference (if category skipped)
+  ansible.builtin.set_fact:
+    install_containerization: "false"
+  when: not (install_category_containerization | bool)
+  tags:
+    - prompt
+    - containerization
+
+
+# --- SECTION: CLI Tools ---
+- name: Prompt to configure general CLI Tools
+  ansible.builtin.pause:
+    prompt: "Do you want to install general CLI Tools (e.g., jq, yq)? (y/N)"
+    echo: yes
+  register: install_category_cli_tools_input
   tags:
     - prompt
     - cli-tools
 
-- name: Prompt for CLI Tools installation
-  ansible.builtin.vars_prompt:
-    name: cli_tools_input
-    prompt: "Install CLI Tools (e.g., jq, yq) (y/n)?"
-    default: "n"
-    private: no
-    timeout: 300
+- name: Set fact for CLI Tools category preference
+  ansible.builtin.set_fact:
+    install_category_cli_tools: "{{ 'true' if install_category_cli_tools_input.user_input | default('n') | lower == 'y' else 'false' }}"
   tags:
     - prompt
     - cli-tools
-- name: Set fact for CLI Tools installation
+
+- name: Prompt for CLI Tools installation if CLI Tools is selected
+  ansible.builtin.pause:
+    prompt: "Install general CLI Tools? (y/N)"
+    echo: yes
+  register: cli_tools_input_result
+  when: install_category_cli_tools | bool
+  tags:
+    - prompt
+    - cli-tools
+
+- name: Set fact for CLI Tools installation preference (if category selected)
   ansible.builtin.set_fact:
-    install_cli_tools: "{{ 'true' if cli_tools_input | lower == 'y' else 'false' }}"
+    install_cli_tools: "{{ 'true' if cli_tools_input_result.user_input | default('n') | lower == 'y' else 'false' }}"
+  when: install_category_cli_tools | bool
+  tags:
+    - prompt
+    - cli-tools
+- name: Set default fact for CLI Tools installation preference (if category skipped)
+  ansible.builtin.set_fact:
+    install_cli_tools: "false"
+  when: not (install_category_cli_tools | bool)
   tags:
     - prompt
     - cli-tools
@@ -613,34 +914,34 @@
   ansible.builtin.debug:
     msg: |
       Installation preferences:
-      Oh My Zsh Plugins: {{ install_zsh_plugins }}
-      Rust: {{ install_rust }}
-      Java: {{ install_java }}
-      Go: {{ install_go }}
-      Node.js: {{ install_nodejs }}
-      Python: {{ install_python }}
-      Terraform: {{ install_terraform }}
-      Kubernetes CLI (kubectl): {{ install_k8s_cli }}
-      K9s: {{ install_k9s }}
-      K3s client: {{ install_k3s_cli }}
-      Ansible CLI: {{ install_ansible_cli }}
-      Ollama: {{ install_ollama }}
-      MinIO Client: {{ install_minio_client }}
-      Argo CD CLI: {{ install_argocd_cli }}
-      Jenkins CLI: {{ install_jenkins_cli }}
-      Helm: {{ install_helm }}
-      Hugging Face CLI: {{ install_huggingface_cli }}
-      JupyterLab: {{ install_jupyterlab }}
-      PyTorch: {{ install_pytorch }}
-      TensorFlow: {{ install_tensorflow }}
-      Database Clients: {{ install_db_clients }}
-      PostgreSQL Server: {{ install_postgresql_server }}
-      AWS CLI: {{ install_aws_cli }}
-      Google Cloud SDK: {{ install_gemini_cli }}
-      VS Code: {{ install_ide_editors }}
-      Version Control: {{ install_version_control }}
-      Containerization: {{ install_containerization }}
-      CLI Tools: {{ install_cli_tools }}
+      Oh My Zsh Plugins: {{ install_zsh_plugins | default('Not Selected (Category skipped)') }}
+      Rust: {{ install_rust | default('Not Selected (Category skipped)') }}
+      Java: {{ install_java | default('Not Selected (Category skipped)') }}
+      Go: {{ install_go | default('Not Selected (Category skipped)') }}
+      Node.js: {{ install_nodejs | default('Not Selected (Category skipped)') }}
+      Python: {{ install_python | default('Not Selected (Category skipped)') }}
+      Terraform: {{ install_terraform | default('Not Selected (Category skipped)') }}
+      Kubernetes CLI (kubectl): {{ install_k8s_cli | default('Not Selected (Category skipped)') }}
+      K9s: {{ install_k9s | default('Not Selected (Category skipped)') }}
+      K3s client: {{ install_k3s_cli | default('Not Selected (Category skipped)') }}
+      Ansible CLI: {{ install_ansible_cli | default('Not Selected (Category skipped)') }}
+      Ollama: {{ install_ollama | default('Not Selected (Category skipped)') }}
+      MinIO Client: {{ install_minio_client | default('Not Selected (Category skipped)') }}
+      Argo CD CLI: {{ install_argocd_cli | default('Not Selected (Category skipped)') }}
+      Jenkins CLI: {{ install_jenkins_cli | default('Not Selected (Category skipped)') }}
+      Helm: {{ install_helm | default('Not Selected (Category skipped)') }}
+      Hugging Face CLI: {{ install_huggingface_cli | default('Not Selected (Category skipped)') }}
+      JupyterLab: {{ install_jupyterlab | default('Not Selected (Category skipped)') }}
+      PyTorch: {{ install_pytorch | default('Not Selected (Category skipped)') }}
+      TensorFlow: {{ install_tensorflow | default('Not Selected (Category skipped)') }}
+      Database Clients: {{ install_db_clients | default('Not Selected (Category skipped)') }}
+      PostgreSQL Server: {{ install_postgresql_server | default('Not Selected (Category skipped)') }}
+      AWS CLI: {{ install_aws_cli | default('Not Selected (Category skipped)') }}
+      Google Cloud SDK: {{ install_gemini_cli | default('Not Selected (Category skipped)') }}
+      VS Code: {{ install_ide_editors | default('Not Selected (Category skipped)') }}
+      Version Control: {{ install_version_control | default('Not Selected (Category skipped)') }}
+      Containerization: {{ install_containerization | default('Not Selected (Category skipped)') }}
+      CLI Tools: {{ install_cli_tools | default('Not Selected (Category skipped)') }}
   tags:
     - prompt
     - summary

@@ -1,0 +1,5 @@
+---
+# Default versions for containerization tools.
+# These values are used if not overridden by group_vars/all.yml or other higher-precedence variables.
+
+docker_version: "latest" # Example: "24.0.5" for a specific minor version

@@ -1,0 +1,7 @@
+---
+# Handlers for the containerization role.
+
+- name: Restart shell for docker group
+  ansible.builtin.debug:
+    msg: "Log out and log back in (or run 'newgrp docker') for the 'docker' group changes to take effect and use Docker without sudo."
+  listen: "Restart shell for docker group"
